@@ -9,7 +9,7 @@ if not api_key:
     st.stop()
 genai.configure(api_key=api_key)
 
-st.title("영상의학과 검사 안내 챗봇")
+st.title("병원 검사 안내 챗봇")
 
 # 검사 관련 기본 정보
 inspection_guidelines = """

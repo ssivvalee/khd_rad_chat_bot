@@ -1,13 +1,15 @@
 import google.generativeai as genai 
 import streamlit as st
+import os
 
-# API 키 설정
-api_key_file = r"C:\Users\82109\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Python 3.13\gemi_api_key.txt"
-with open(api_key_file, 'r') as file:
-    api_key = file.read().strip()
+# API 키 설정 (환경 변수 사용)
+api_key = os.getenv("GEMINI_API_KEY")
+if not api_key:
+    st.error("API 키가 설정되지 않았습니다. 관리자에게 문의하세요.")
+    st.stop()
 genai.configure(api_key=api_key)
 
-st.title("영상의학과 검사 안내 챗봇")
+st.title("병원 검사 안내 챗봇")
 
 # 검사 관련 기본 정보
 inspection_guidelines = """
@@ -32,7 +34,7 @@ model = load_model()
 
 # 시스템 프롬프트
 system_prompt = (
-    "너는 병원 검사 안내 챗봇이야. 환자가 예약된 검사에 대해 질문하면, 개인정보 없이 일반적인 검사 유형(초음파, MRI, CT 등)에 대한 준비사항, 절차, 주의사항을 친절하게 안내해줘.되도록 간단 명료하게 말해줘. "
+    "너는 병원 검사 안내 챗봇이야. 환자가 예약된 검사에 대해 질문하면, 개인정보 없이 일반적인 검사 유형(혈액검사, 초음파, MRI, CT 등)에 대한 준비사항, 절차, 주의사항을 친절하게 안내해줘. "
     f"다음은 참고할 기본 정보야:\n{inspection_guidelines}\n"
     "환자가 구체적인 검사 유형을 말하지 않으면, 질문을 명확히 하도록 유도해. "
     "또한, 환자가 당뇨약 이름을 물으면, 그 약이 메트포르민 성분인지 확인해줘. "

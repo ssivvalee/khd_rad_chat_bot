@@ -1,6 +1,8 @@
 import google.generativeai as genai
 import streamlit as st
 import os
+import io
+from gtts import gTTS
 
 # API 키 설정
 api_key = os.getenv("GEMINI_API_KEY")
@@ -87,16 +89,17 @@ with col2:
         with st.chat_message("user"):
             st.markdown(st.session_state["chat_input"])
         with st.chat_message("ai"):
-            response = st.session_state.chat_session.send_message(st.session_state["chat_input"])
-            st.markdown(response.text)
-            # 음성 안내 버튼 (response 사용 가능하도록 이동)
+            st.session_state["response"] = st.session_state.chat_session.send_message(st.session_state["chat_input"])
+            st.markdown(st.session_state["response"].text)
+            # 음성 안내 버튼
             if st.button("음성으로 듣기", key="audio_button"):
                 try:
-                    from gtts import gTTS
-                    tts = gTTS(text=response.text, lang='ko')
-                    tts.save("response.mp3")
-                    st.audio("response.mp3", format="audio/mp3")  # Streamlit Cloud용
-                    # os.system("start response.mp3")  # 로컬용 주석 처리
+                    tts = gTTS(text=st.session_state["response"].text, lang='ko')
+                    # 파일 저장 대신 메모리에서 처리
+                    audio_buffer = io.BytesIO()
+                    tts.write_to_fp(audio_buffer)
+                    audio_buffer.seek(0)
+                    st.audio(audio_buffer, format="audio/mp3")
                 except ImportError:
                     st.error("음성 기능(gTTS)이 설치되지 않았습니다. 관리자에게 문의하세요.")
                 except Exception as e:

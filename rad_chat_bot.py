@@ -32,7 +32,7 @@ def load_model():
 
 model = load_model()
 
-# 시스템 프롬프트 (개인정보 배제 반영)
+# 시스템 프롬프트
 system_prompt = (
     "너는 병원 검사 안내 챗봇이야. 환자가 예약된 검사에 대해 질문하면, 개인정보(이름, 등록번호 등)를 묻지 않고 일반적인 검사 유형(초음파, MRI, CT 등)에 대한 준비사항, 절차, 주의사항을 친절하게 안내해줘. "
     f"참고 정보:\n{inspection_guidelines}\n"
@@ -73,29 +73,36 @@ with col3:
             st.session_state["chat_input"] = faq_questions[i]
 
 with col2:
+    # 대화 기록 출력
     for content in st.session_state.chat_session.history[2:]:
         with st.chat_message("ai" if content.role == "model" else "user"):
             st.markdown(content.parts[0].text)
 
+    # 사용자 질문 처리
     if prompt := st.chat_input("검사 유형(초음파, MRI, CT)을 말씀해 주세요. 금식이나 당뇨약 질문도 가능합니다:"):
         st.session_state["chat_input"] = prompt
 
+    # FAQ 버튼이나 입력창에서 받은 질문 처리
     if "chat_input" in st.session_state and st.session_state["chat_input"]:
         with st.chat_message("user"):
             st.markdown(st.session_state["chat_input"])
         with st.chat_message("ai"):
             response = st.session_state.chat_session.send_message(st.session_state["chat_input"])
             st.markdown(response.text)
+            # 음성 안내 버튼 (response 사용 가능하도록 이동)
+            if st.button("음성으로 듣기", key="audio_button"):
+                try:
+                    from gtts import gTTS
+                    tts = gTTS(text=response.text, lang='ko')
+                    tts.save("response.mp3")
+                    st.audio("response.mp3", format="audio/mp3")  # Streamlit Cloud용
+                    # os.system("start response.mp3")  # 로컬용 주석 처리
+                except ImportError:
+                    st.error("음성 기능(gTTS)이 설치되지 않았습니다. 관리자에게 문의하세요.")
+                except Exception as e:
+                    st.error(f"음성 변환 중 오류 발생: {str(e)}")
+        # 익명 피드백
+        feedback = st.radio("도움이 되었나요?", ["Yes", "No"], key="feedback")
+        if feedback == "No":
+            st.text_input("피드백을 남겨주세요 (익명):", key="feedback_input")
         st.session_state["chat_input"] = ""
-
-    # 음성 안내 버튼
-    if st.button("음성으로 듣기", key="audio_button"):
-        from gtts import gTTS
-        tts = gTTS(text=response.text, lang='ko')
-        tts.save("response.mp3")
-        os.system("start response.mp3")  # Windows 기준, Mac은 "open"
-
-    # 익명 피드백
-    feedback = st.radio("도움이 되었나요?", ["Yes", "No"], key="feedback")
-    if feedback == "No":
-        st.text_input("피드백을 남겨주세요 (익명):", key="feedback_input")

@@ -3,47 +3,7 @@ import streamlit as st
 import os
 import io
 import json
-import base64
 from gtts import gTTS
-
-# kangdong_logo.svg를 base64로 변환
-with open("kangdong_logo.svg", "rb") as svg_file:
-    encoded_string = base64.b64encode(svg_file.read()).decode()
-    base64_svg = f"data:image/svg+xml;base64,{encoded_string}"
-
-# CSS 스타일 (워터마크 + 글씨 크기 조정)
-st.markdown(f"""
-<style>
-.watermark {{
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-image: url("{base64_svg}");
-    background-repeat: no-repeat;
-    background-position: center;
-    opacity: 0.2;
-    z-index: -1;
-    pointer-events: none;
-    animation: expand 2s ease-in-out forwards;
-}}
-@keyframes expand {{
-    0% {{ background-size: 10%; }}
-    100% {{ background-size: 80%; }}
-}}
-.chat-text {{
-    font-size: 18px !important;
-}}
-.title-text {{
-    font-size: 24px !important;
-}}
-h2 {{
-    font-size: 16px !important;  /* "자주 묻는 질문" 크기 줄임 */
-}}
-</style>
-<div class="watermark"></div>
-""", unsafe_allow_html=True)
 
 # API 키 설정
 api_key = os.getenv("GEMINI_API_KEY")
@@ -52,7 +12,7 @@ if not api_key:
     st.stop()
 genai.configure(api_key=api_key)
 
-st.markdown('<p class="title-text">영상의학과 검사 안내 챗봇 (개인정보 미포함)</p>', unsafe_allow_html=True)
+st.title("영상의학과 안내 챗봇 (개인정보 넣지 마세요)")
 
 # 파일 읽기 함수
 def load_text_file(file_path):
@@ -63,10 +23,13 @@ def load_json_file(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
         return json.load(f)
 
+# 데이터 로드
 inspection_guidelines = load_text_file("data/inspection_guidelines.txt")
 metformin_drugs = load_json_file("data/metformin_drugs.json")
 faq_questions = load_json_file("data/faq_questions.json")
 system_prompt_template = load_text_file("data/system_prompt.txt")
+
+# system_prompt에 데이터 삽입
 system_prompt = system_prompt_template.format(
     inspection_guidelines=inspection_guidelines,
     metformin_drugs=', '.join(metformin_drugs)
@@ -75,26 +38,29 @@ system_prompt = system_prompt_template.format(
 @st.cache_resource
 def load_model():
     model = genai.GenerativeModel('gemini-1.5-flash')
+    print("model loaded...")
     return model
 
 model = load_model()
 
+# 세션 초기화
 if "chat_session" not in st.session_state:
     st.session_state["chat_session"] = model.start_chat(history=[
         {"role": "user", "parts": [{"text": system_prompt}]},
-        {"role": "model", "parts": [{"text": "알겠습니다! 검사 유형(초음파, MRI, CT)을 말씀해 주세요."}]}
+        {"role": "model", "parts": [{"text": "알겠습니다! 검사 유형(초음파, MRI, CT)을 말씀해 주세요. 금식이나 당뇨약에 대해 궁금하면 물어보세요."}]}
     ])
 
+# 화면 레이아웃 (FAQ 및 대화 부분은 그대로 유지)
 col1, col2, col3 = st.columns([1, 2, 1])
 
 with col1:
-    st.subheader("자주 묻는 질문 (1)")  # 크기 줄어짐
+    st.subheader("자주 묻는 질문 (1)")
     for i in range(0, len(faq_questions)//2):
         if st.button(faq_questions[i], key=f"faq_left_{i}"):
             st.session_state["chat_input"] = faq_questions[i]
 
 with col3:
-    st.subheader("자주 묻는 질문 (2)")  # 크기 줄어짐
+    st.subheader("자주 묻는 질문 (2)")
     for i in range(len(faq_questions)//2, len(faq_questions)):
         if st.button(faq_questions[i], key=f"faq_right_{i}"):
             st.session_state["chat_input"] = faq_questions[i]
@@ -102,17 +68,17 @@ with col3:
 with col2:
     for content in st.session_state.chat_session.history[2:]:
         with st.chat_message("ai" if content.role == "model" else "user"):
-            st.markdown(f'<p class="chat-text">{content.parts[0].text}</p>', unsafe_allow_html=True)
+            st.markdown(content.parts[0].text)
 
-    if prompt := st.chat_input("검사 유형(초음파, MRI, CT)을 말씀해 주세요:"):
+    if prompt := st.chat_input("무엇이든 물어보세요"):
         st.session_state["chat_input"] = prompt
 
     if "chat_input" in st.session_state and st.session_state["chat_input"]:
         with st.chat_message("user"):
-            st.markdown(f'<p class="chat-text">{st.session_state["chat_input"]}</p>', unsafe_allow_html=True)
+            st.markdown(st.session_state["chat_input"])
         with st.chat_message("ai"):
             st.session_state["response"] = st.session_state.chat_session.send_message(st.session_state["chat_input"])
-            st.markdown(f'<p class="chat-text">{st.session_state["response"].text}</p>', unsafe_allow_html=True)
+            st.markdown(st.session_state["response"].text)
 
 if st.button("음성으로 듣기", key="audio_button"):
     try:
@@ -121,5 +87,7 @@ if st.button("음성으로 듣기", key="audio_button"):
         tts.write_to_fp(audio_buffer)
         audio_buffer.seek(0)
         st.audio(audio_buffer, format="audio/mp3")
+    except ImportError:
+        st.error("음성 기능(gTTS)이 설치되지 않았습니다. 관리자에게 문의하세요.")
     except Exception as e:
         st.error(f"음성 변환 중 오류 발생: {str(e)}")

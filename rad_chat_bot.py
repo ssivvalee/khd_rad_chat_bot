@@ -2,23 +2,35 @@ import google.generativeai as genai
 import streamlit as st
 import os
 import io
-from gtts import gTTS
+from google.cloud import texttospeech
+import tempfile
 
-# API 키 설정
+# API 키 설정 (Gemini API)
 api_key = os.getenv("GEMINI_API_KEY")
 if not api_key:
     st.error("API 키가 설정되지 않았습니다. 관리자에게 문의하세요.")
     st.stop()
 genai.configure(api_key=api_key)
 
+# Google Cloud Text-to-Speech 클라이언트 초기화
+try:
+    client = texttospeech.TextToSpeechClient()
+except Exception as e:
+    st.error(f"Google Cloud Text-to-Speech 초기화 실패: {str(e)}")
+    st.stop()
+
 st.title("영상의학과 검사 안내 챗봇 (개인정보 미포함)")
 
-# 검사 관련 기본 정보
-inspection_guidelines = """
-- 초음파: 복부 초음파의 경우 6시간 전부터 금식하세요. 자세한 내용은 노란색 검사안내지 또는 스티커를 참고하세요.
-- MRI: 금속 물체(장신구, 열쇠 등)를 제거하고 검사실에 들어가세요. 간, 췌장, 담낭 검사는 금식 6시간 필수입니다. 자세한 내용은 노란색 검사안내지 또는 스티커를 참고하세요.
-- CT: 조영제 사용검사의 경우 6시간 금식, 검사 2일 전 메트포르민 성분 당뇨약 복용 중단(검사 전날, 당일, 다음날까지 3일간). 자세한 내용은 노란색 검사안내지 또는 스티커를 참고하세요.
-"""
+# inspection_guidelines.txt 파일 읽기
+try:
+    with open("inspection_guidelines.txt", "r", encoding="utf-8") as f:
+        inspection_guidelines = f.read()
+except FileNotFoundError:
+    st.error("inspection_guidelines.txt 파일을 찾을 수 없습니다. 관리자에게 문의하세요.")
+    inspection_guidelines = ""  # 기본값 설정
+except Exception as e:
+    st.error(f"파일 읽기 중 오류 발생: {str(e)}")
+    inspection_guidelines = ""
 
 # 메트포르민 포함 약물 목록
 metformin_drugs = [
@@ -92,17 +104,29 @@ with col2:
             st.session_state["response"] = st.session_state.chat_session.send_message(st.session_state["chat_input"])
             st.markdown(st.session_state["response"].text)
             # 음성 안내 버튼
-if st.button("음성으로 듣기", key="audio_button"):
-    try:
-        tts = gTTS(text=st.session_state["response"].text, lang='ko')
-        st.write("TTS 생성 완료")  # 디버깅 로그
-        audio_buffer = io.BytesIO()
-        tts.write_to_fp(audio_buffer)
-        st.write("버퍼에 음성 데이터 저장 완료")  # 디버깅 로그
-        audio_buffer.seek(0)
-        st.audio(audio_buffer, format="audio/mp3")
-        st.write("음성 재생 시도 완료")  # 디버깅 로그
-    except ImportError:
-        st.error("음성 기능(gTTS)이 설치되지 않았습니다. 관리자에게 문의하세요.")
-    except Exception as e:
-        st.error(f"음성 변환 중 오류 발생: {str(e)}")
+            if st.button("음성으로 듣기", key="audio_button"):
+                if "response" not in st.session_state or not st.session_state["response"]:
+                    st.error("먼저 질문을 입력해 주세요.")
+                else:
+                    try:
+                        st.write("TTS 생성 시작 (Google Cloud)")
+                        synthesis_input = texttospeech.SynthesisInput(text=st.session_state["response"].text)
+                        voice = texttospeech.VoiceSelectionParams(language_code="ko-KR", ssml_gender=texttospeech.SsmlVoiceGender.NEUTRAL)
+                        audio_config = texttospeech.AudioConfig(audio_encoding=texttospeech.AudioEncoding.MP3)
+                        audio_response = client.synthesize_speech(input=synthesis_input, voice=voice, audio_config=audio_config)
+                        st.write("TTS 생성 완료 (Google Cloud)")
+                        # 임시 파일로 저장 후 재생
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_file:
+                            tmp_file.write(audio_response.audio_content)
+                            tmp_file_path = tmp_file.name
+                        st.audio(tmp_file_path, format="audio/mp3", autoplay=False)
+                        st.write("음성 재생 시도 완료")
+                        # 임시 파일 삭제
+                        os.unlink(tmp_file_path)
+                    except Exception as e:
+                        st.error(f"음성 변환 중 오류 발생: {str(e)}")
+        # 익명 피드백
+        feedback = st.radio("도움이 되었나요?", ["Yes", "No"], key="feedback")
+        if feedback == "No":
+            st.text_input("피드백을 남겨주세요 (익명):", key="feedback_input")
+        st.session_state["chat_input"] = ""

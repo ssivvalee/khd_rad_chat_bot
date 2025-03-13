@@ -47,7 +47,7 @@ if not api_key:
     st.stop()
 genai.configure(api_key=api_key)
 
-st.markdown('<p class="title-text">영상의학과 검사 안내 챗봇 (개인정보 미포함)</p>', unsafe_allow_html=True)
+st.markdown('<p class="title-text">영상의학과 안내 챗봇 (개인정보는 넣지 마세요)</p>', unsafe_allow_html=True)
 
 # 파일 읽기 함수
 def load_text_file(file_path):
@@ -77,7 +77,7 @@ model = load_model()
 if "chat_session" not in st.session_state:
     st.session_state["chat_session"] = model.start_chat(history=[
         {"role": "user", "parts": [{"text": system_prompt}]},
-        {"role": "model", "parts": [{"text": "알겠습니다! 검사 유형(초음파, MRI, CT)을 말씀해 주세요."}]}
+        {"role": "model", "parts": [{"text": "무엇이든물어보세요"}]}
     ])
 
 col1, col2, col3 = st.columns([1, 2, 1])
@@ -99,7 +99,7 @@ with col2:
         with st.chat_message("ai" if content.role == "model" else "user"):
             st.markdown(f'<p class="chat-text">{content.parts[0].text}</p>', unsafe_allow_html=True)
 
-    if prompt := st.chat_input("검사 유형(초음파, MRI, CT)을 말씀해 주세요:"):
+    if prompt := st.chat_input("무엇이든 물어보세요."):
         st.session_state["chat_input"] = prompt
 
     if "chat_input" in st.session_state and st.session_state["chat_input"]:

@@ -12,7 +12,7 @@ if not api_key:
     st.stop()
 genai.configure(api_key=api_key)
 
-st.title("영상의학과 검사 안내 챗봇 (개인정보 미포함)")
+st.title("영상의학과 안내 챗봇 (개인정보 미포함)")
 
 # 파일 읽기 함수
 def load_text_file(file_path):

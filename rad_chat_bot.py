@@ -92,20 +92,17 @@ with col2:
             st.session_state["response"] = st.session_state.chat_session.send_message(st.session_state["chat_input"])
             st.markdown(st.session_state["response"].text)
             # 음성 안내 버튼
-            if st.button("음성으로 듣기", key="audio_button"):
-                try:
-                    tts = gTTS(text=st.session_state["response"].text, lang='ko')
-                    # 파일 저장 대신 메모리에서 처리
-                    audio_buffer = io.BytesIO()
-                    tts.write_to_fp(audio_buffer)
-                    audio_buffer.seek(0)
-                    st.audio(audio_buffer, format="audio/mp3")
-                except ImportError:
-                    st.error("음성 기능(gTTS)이 설치되지 않았습니다. 관리자에게 문의하세요.")
-                except Exception as e:
-                    st.error(f"음성 변환 중 오류 발생: {str(e)}")
-        # 익명 피드백
-        feedback = st.radio("도움이 되었나요?", ["Yes", "No"], key="feedback")
-        if feedback == "No":
-            st.text_input("피드백을 남겨주세요 (익명):", key="feedback_input")
-        st.session_state["chat_input"] = ""
+if st.button("음성으로 듣기", key="audio_button"):
+    try:
+        tts = gTTS(text=st.session_state["response"].text, lang='ko')
+        st.write("TTS 생성 완료")  # 디버깅 로그
+        audio_buffer = io.BytesIO()
+        tts.write_to_fp(audio_buffer)
+        st.write("버퍼에 음성 데이터 저장 완료")  # 디버깅 로그
+        audio_buffer.seek(0)
+        st.audio(audio_buffer, format="audio/mp3")
+        st.write("음성 재생 시도 완료")  # 디버깅 로그
+    except ImportError:
+        st.error("음성 기능(gTTS)이 설치되지 않았습니다. 관리자에게 문의하세요.")
+    except Exception as e:
+        st.error(f"음성 변환 중 오류 발생: {str(e)}")

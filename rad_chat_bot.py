@@ -12,7 +12,7 @@ if not api_key:
     st.stop()
 genai.configure(api_key=api_key)
 
-st.title("영상의학과 안내 챗봇 (개인정보 미포함)")
+st.title("영상의학과 안내 챗봇 (개인정보 넣지 마세요)")
 
 # 파일 읽기 함수
 def load_text_file(file_path):
@@ -70,7 +70,7 @@ with col2:
         with st.chat_message("ai" if content.role == "model" else "user"):
             st.markdown(content.parts[0].text)
 
-    if prompt := st.chat_input("검사 유형(초음파, MRI, CT)을 말씀해 주세요. 금식이나 당뇨약 질문도 가능합니다:"):
+    if prompt := st.chat_input("무엇이든 물어보세요"):
         st.session_state["chat_input"] = prompt
 
     if "chat_input" in st.session_state and st.session_state["chat_input"]:

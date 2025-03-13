@@ -6,20 +6,28 @@ import json
 import base64
 from gtts import gTTS
 
-# kangdong_logo.svg를 base64로 변환 (실제로는 파일에서 생성)
+# kangdong_logo.svg를 base64로 변환
 with open("kangdong_logo.svg", "rb") as svg_file:
     encoded_string = base64.b64encode(svg_file.read()).decode()
     base64_svg = f"data:image/svg+xml;base64,{encoded_string}"
 
-# CSS 스타일 (워터마크 + 글씨 크기)
+# CSS 스타일 (워터마크를 별도 div로 처리)
 st.markdown(f"""
 <style>
-body {{
+/* 워터마크를 위한 div 스타일 */
+.watermark {{
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     background-image: url("{base64_svg}");
-    background-size: cover;        /* 화면 전체를 채움 */
-    background-repeat: no-repeat;  /* 반복 안 함 */
-    background-position: center;   /* 중앙 정렬 */
-    opacity: 0.2;                  /* 투명도 */
+    background-size: 50%;          /* 초기 크기, 화면의 50%에서 시작 */
+    background-repeat: no-repeat;
+    background-position: center;   /* 가운데 정렬 */
+    opacity: 0.2;                  /* 워터마크만 투명 */
+    z-index: -1;                   /* 콘텐츠 뒤로 배치 */
+    pointer-events: none;          /* 클릭 방지 */
 }}
 .chat-text {{
     font-size: 18px !important;
@@ -28,6 +36,8 @@ body {{
     font-size: 24px !important;
 }}
 </style>
+<!-- 워터마크 div 추가 -->
+<div class="watermark"></div>
 """, unsafe_allow_html=True)
 
 # API 키 설정

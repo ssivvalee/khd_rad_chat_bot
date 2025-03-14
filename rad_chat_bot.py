@@ -167,7 +167,7 @@ with col1:
 with col2:
     st.title(titles[selected_language])
 with col3:
-    if st.button("대화초기화(Reset Chatting", key="reset_button"):
+    if st.button("대화리셋", key="reset_button"):
         # 대화 리셋 로직
         st.session_state["chat_session"] = model.start_chat(history=[
             {"role": "user", "parts": [{"text": system_prompt}]},

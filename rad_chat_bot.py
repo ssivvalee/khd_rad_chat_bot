@@ -4,7 +4,6 @@ import os
 import io
 import json
 from gtts import gTTS
-import streamlit.components.v1 as components
 
 # 페이지 설정
 st.set_page_config(
@@ -13,11 +12,10 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# CSS로 서울아산병원 스타일 적용
+# CSS 스타일 정의
 st.markdown(
     """
     <style>
-        /* 전체 컨테이너 스타일 */
         .chat-container {
             max-width: 800px;
             margin: 0 auto;
@@ -28,7 +26,6 @@ st.markdown(
             flex-direction: column;
             background-color: #fff;
         }
-        /* 헤더 스타일 */
         .chat-header {
             display: flex;
             justify-content: space-between;
@@ -42,7 +39,6 @@ st.markdown(
             font-size: 18px;
             font-weight: bold;
         }
-        /* 채팅창 스타일 */
         .chat-body {
             flex-grow: 1;
             overflow-y: auto;
@@ -61,7 +57,6 @@ st.markdown(
             background-color: #fff;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
-        /* 입력창 스타일 */
         .chat-footer {
             padding: 10px 20px;
             border-top: 1px solid #e0e0e0;
@@ -74,7 +69,9 @@ st.markdown(
             border: 1px solid #ddd;
             border-radius: 5px;
         }
-        /* 모바일 반응형 */
+        .stButton > button {
+            margin: 5px 0;
+        }
         @media (max-width: 768px) {
             .chat-container {
                 height: 100vh;
@@ -85,13 +82,6 @@ st.markdown(
             }
             .chat-header h3 {
                 font-size: 16px;
-            }
-            .stButton > button {
-                padding: 8px;
-                font-size: 14px;
-            }
-            .stChatMessage {
-                font-size: 14px;
             }
         }
     </style>
@@ -179,34 +169,67 @@ if "chat_session" not in st.session_state:
         {"role": "model", "parts": [{"text": seasonal_notice[selected_language]}]}
     ])
 
-# 챗봇 UI
-st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+# 챗봇 UI (chat-container로 감싸기)
+with st.container():
+    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
 
-# 헤더
-st.markdown('<div class="chat-header">', unsafe_allow_html=True)
-col1, col2, col3 = st.columns([1, 8, 1])
-with col1:
-    if st.button("☰", key="menu_button"):
-        st.session_state["show_sidebar"] = not st.session_state["show_sidebar"]
-with col2:
-    st.markdown(f'<h3>{titles[selected_language]}</h3>', unsafe_allow_html=True)
-with col3:
-    if st.button("🏠", key="reset_button"):
-        st.session_state["chat_session"] = model.start_chat(history=[
-            {"role": "user", "parts": [{"text": system_prompt}]},
-            {"role": "model", "parts": [{"text": initial_messages[selected_language]}]},
-            {"role": "model", "parts": [{"text": seasonal_notice[selected_language]}]}
-        ])
-        st.session_state.pop("chat_input", None)
-        st.success("대화가 리셋되었습니다." if selected_language == "한국어" else "Chat has been reset.")
-        st.rerun()
-st.markdown('</div>', unsafe_allow_html=True)
+    # 헤더
+    with st.container():
+        st.markdown('<div class="chat-header">', unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1, 8, 1])
+        with col1:
+            if st.button("☰", key="menu_button"):
+                st.session_state["show_sidebar"] = not st.session_state.get("show_sidebar", False)
+        with col2:
+            st.markdown(f'<h3>{titles[selected_language]}</h3>', unsafe_allow_html=True)
+        with col3:
+            if st.button("🏠", key="reset_button"):
+                st.session_state["chat_session"] = model.start_chat(history=[
+                    {"role": "user", "parts": [{"text": system_prompt}]},
+                    {"role": "model", "parts": [{"text": initial_messages[selected_language]}]},
+                    {"role": "model", "parts": [{"text": seasonal_notice[selected_language]}]}
+                ])
+                st.session_state.pop("chat_input", None)
+                st.success("대화가 리셋되었습니다." if selected_language == "한국어" else "Chat has been reset.")
+                st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # 채팅창
+    with st.container():
+        st.markdown('<div class="chat-body"><div class="chat-box"><h4>무엇을 도와드릴까요?</h4>', unsafe_allow_html=True)
+        for content in st.session_state.chat_session.history[2:]:
+            with st.chat_message("ai" if content.role == "model" else "user"):
+                st.markdown(content.parts[0].text, unsafe_allow_html=True)
+        st.markdown('</div></div>', unsafe_allow_html=True)
+
+    # 입력창 및 음성 버튼
+    with st.container():
+        st.markdown('<div class="chat-footer">', unsafe_allow_html=True)
+        if prompt := st.chat_input("키워드를 입력해 주세요" if selected_language == "한국어" else "Enter a keyword"):
+            st.session_state["chat_input"] = prompt
+
+        if "chat_input" in st.session_state and st.session_state["chat_input"]:
+            with st.chat_message("user"):
+                st.markdown(st.session_state["chat_input"])
+            with st.chat_message("ai"):
+                st.session_state["response"] = st.session_state.chat_session.send_message(st.session_state["chat_input"])
+                st.markdown(st.session_state["response"].text, unsafe_allow_html=True)
+
+        if st.button("음성으로 듣기" if selected_language == "한국어" else "Listen to Voice", key="audio_button") and "response" in st.session_state:
+            try:
+                tts = gTTS(text=st.session_state["response"].text, lang=lang_code)
+                audio_buffer = io.BytesIO()
+                tts.write_to_fp(audio_buffer)
+                audio_buffer.seek(0)
+                st.audio(audio_buffer, format="audio/mp3")
+            except Exception as e:
+                st.error(f"음성 변환 중 오류 발생: {str(e)}" if selected_language == "한국어" else f"Error during voice conversion: {str(e)}")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # 사이드바 (LNB)
-if "show_sidebar" not in st.session_state:
-    st.session_state["show_sidebar"] = False
-
-if st.session_state["show_sidebar"]:
+if st.session_state.get("show_sidebar", False):
     with st.sidebar:
         st.header(titles[selected_language])
         st.markdown("아래 카테고리를 누르시면 관련 정보를 볼 수 있습니다.")
@@ -214,35 +237,3 @@ if st.session_state["show_sidebar"]:
             for btn in ["초음파", "MRI", "CT", "금식", "당뇨약"]:
                 if st.button(btn, key=f"faq_{btn}"):
                     st.session_state["chat_input"] = btn
-
-# 채팅창
-st.markdown('<div class="chat-body"><div class="chat-box"><h4>무엇을 도와드릴까요?</h4>', unsafe_allow_html=True)
-for content in st.session_state.chat_session.history[2:]:
-    with st.chat_message("ai" if content.role == "model" else "user"):
-        st.markdown(content.parts[0].text, unsafe_allow_html=True)
-st.markdown('</div></div>', unsafe_allow_html=True)
-
-# 입력창
-st.markdown('<div class="chat-footer">', unsafe_allow_html=True)
-if prompt := st.chat_input("키워드를 입력해 주세요" if selected_language == "한국어" else "Enter a keyword"):
-    st.session_state["chat_input"] = prompt
-
-if "chat_input" in st.session_state and st.session_state["chat_input"]:
-    with st.chat_message("user"):
-        st.markdown(st.session_state["chat_input"])
-    with st.chat_message("ai"):
-        st.session_state["response"] = st.session_state.chat_session.send_message(st.session_state["chat_input"])
-        st.markdown(st.session_state["response"].text, unsafe_allow_html=True)
-
-# 음성 버튼
-if st.button("음성으로 듣기" if selected_language == "한국어" else "Listen to Voice", key="audio_button"):
-    try:
-        tts = gTTS(text=st.session_state["response"].text, lang=lang_code)
-        audio_buffer = io.BytesIO()
-        tts.write_to_fp(audio_buffer)
-        audio_buffer.seek(0)
-        st.audio(audio_buffer, format="audio/mp3")
-    except Exception as e:
-        st.error(f"음성 변환 중 오류 발생: {str(e)}" if selected_language == "한국어" else f"Error during voice conversion: {str(e)}")
-
-st.markdown('</div>', unsafe_allow_html=True)

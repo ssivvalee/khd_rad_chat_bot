@@ -122,11 +122,11 @@ model = load_model()
 
 # 초기 메시지 및 계절별 주의 문구 정의
 initial_messages = {
-    "한국어": "알겠습니다! 검사 유형(초음파, MRI, CT)을 말씀해 주세요. 금식이나 당뇨약에 대해 궁금하면 물어보세요.",
-    "English": "Understood! Please tell me the type of examination (ultrasound, MRI, CT). Feel free to ask about fasting or diabetes medication.",
-    "日本語": "了解しました！検査の種類（超音波、MRI、CT）を教えてください。絶食や糖尿病薬について質問があればどうぞ。",
-    "中文 (简体)": "明白了！请告诉我检查类型（超声波、MRI、CT）。如果对禁食或糖尿病药物有疑问，请随时问我。",
-    "Español": "¡Entendido! Por favor, dime el tipo de examen (ultrasonido, MRI, CT). Si tienes preguntas sobre ayuno o medicamentos para la diabetes, no dudes en preguntar."
+    "한국어": "검사 유형(초음파, MRI, CT)을 말씀해 주세요. 금식이나 당뇨약에 대해 궁금하면 물어보세요.",
+    "English": "Please tell me the type of examination (ultrasound, MRI, CT). Feel free to ask about fasting or diabetes medication.",
+    "日本語": "検査の種類（超音波、MRI、CT）を教えてください。絶食や糖尿病薬について質問があればどうぞ。",
+    "中文 (简体)": "请告诉我检查类型（超声波、MRI、CT）。如果对禁食或糖尿病药物有疑问，请随时问我。",
+    "Español": "Por favor, dime el tipo de examen (ultrasonido, MRI, CT). Si tienes preguntas sobre ayuno o medicamentos para la diabetes, no dudes en preguntar."
 }
 
 seasonal_notice = {
@@ -148,7 +148,7 @@ if "chat_session" not in st.session_state:
 # 상단 레이아웃: 제목, 햄버거 메뉴, 집 모양 아이콘
 col1, col2, col3 = st.columns([1, 8, 1])
 with col1:
-    if st.button("☰", key="menu_button"):
+    if st.button("F", key="menu_button"):
         st.session_state["show_sidebar"] = not st.session_state["show_sidebar"]
         if st.session_state["show_sidebar"]:
             # JavaScript를 통해 사이드바 강제 열기

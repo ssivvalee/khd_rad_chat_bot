@@ -4,6 +4,7 @@ import os
 import io
 import json
 from gtts import gTTS
+import streamlit.components.v1 as components
 
 # 모바일 뷰포트 설정 (HTML 헤더에 추가)
 st.set_page_config(
@@ -149,6 +150,20 @@ col1, col2, col3 = st.columns([1, 8, 1])
 with col1:
     if st.button("☰", key="menu_button"):
         st.session_state["show_sidebar"] = not st.session_state["show_sidebar"]
+        if st.session_state["show_sidebar"]:
+            # JavaScript를 통해 사이드바 강제 열기
+            components.html(
+                """
+                <script>
+                    // Streamlit의 기본 사이드바 토글 버튼을 찾아 클릭
+                    const sidebarToggle = document.querySelector('[data-testid="stSidebarCollapsedControl"]');
+                    if (sidebarToggle) {
+                        sidebarToggle.click();
+                    }
+                </script>
+                """,
+                height=0
+            )
 with col2:
     st.title(titles[selected_language])
 with col3:

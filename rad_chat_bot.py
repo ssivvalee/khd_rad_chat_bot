@@ -16,6 +16,7 @@ st.set_page_config(
 st.markdown(
     """
     <style>
+        /* 전체 컨테이너 스타일 */
         .chat-container {
             max-width: 800px;
             margin: 0 auto;
@@ -26,6 +27,7 @@ st.markdown(
             flex-direction: column;
             background-color: #fff;
         }
+        /* 헤더 스타일 */
         .chat-header {
             display: flex;
             justify-content: space-between;
@@ -39,6 +41,12 @@ st.markdown(
             font-size: 18px;
             font-weight: bold;
         }
+        /* 언어 선택 드롭다운 스타일 */
+        .chat-header .stSelectbox {
+            width: 150px !important;
+            margin-left: 10px;
+        }
+        /* 채팅창 스타일 */
         .chat-body {
             flex-grow: 1;
             overflow-y: auto;
@@ -50,20 +58,22 @@ st.markdown(
             color: #666;
             margin-bottom: 20px;
         }
-        .stChatMessage {
+        /* Streamlit 채팅 메시지 스타일 */
+        [data-testid="stChatMessage"] {
             margin-bottom: 15px;
             padding: 10px;
             border-radius: 5px;
             background-color: #fff;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 3px rgba(0,0 Judges0,0.1);
         }
+        /* 입력창 스타일 */
         .chat-footer {
             padding: 10px 20px;
             border-top: 1px solid #e0e0e0;
             background-color: #fff;
         }
-        .stTextInput > div > input {
-            width: 100%;
+        [data-testid="stTextInput"] {
+            width: 100% !important;
             padding: 10px;
             font-size: 14px;
             border: 1px solid #ddd;
@@ -72,6 +82,7 @@ st.markdown(
         .stButton > button {
             margin: 5px 0;
         }
+        /* 모바일 반응형 */
         @media (max-width: 768px) {
             .chat-container {
                 height: 100vh;
@@ -104,8 +115,6 @@ language_options = {
     "中文 (简体)": "zh-CN",
     "Español": "es"
 }
-selected_language = st.selectbox("Select your language", list(language_options.keys()), index=0, key="language_select")
-lang_code = language_options[selected_language]
 
 # 제목 다국어 처리
 titles = {
@@ -165,9 +174,13 @@ seasonal_notice = {
 if "chat_session" not in st.session_state:
     st.session_state["chat_session"] = model.start_chat(history=[
         {"role": "user", "parts": [{"text": system_prompt}]},
-        {"role": "model", "parts": [{"text": initial_messages[selected_language]}]},
-        {"role": "model", "parts": [{"text": seasonal_notice[selected_language]}]}
+        {"role": "model", "parts": [{"text": initial_messages["한국어"]}]},
+        {"role": "model", "parts": [{"text": seasonal_notice["한국어"]}]}
     ])
+
+# 언어 선택 상태 초기화
+if "selected_language" not in st.session_state:
+    st.session_state["selected_language"] = "한국어"
 
 # 챗봇 UI (chat-container로 감싸기)
 with st.container():
@@ -176,21 +189,31 @@ with st.container():
     # 헤더
     with st.container():
         st.markdown('<div class="chat-header">', unsafe_allow_html=True)
-        col1, col2, col3 = st.columns([1, 8, 1])
+        col1, col2, col3, col4 = st.columns([1, 5, 1, 2])
         with col1:
             if st.button("☰", key="menu_button"):
                 st.session_state["show_sidebar"] = not st.session_state.get("show_sidebar", False)
         with col2:
-            st.markdown(f'<h3>{titles[selected_language]}</h3>', unsafe_allow_html=True)
+            st.markdown(f'<h3>{titles[st.session_state["selected_language"]]}</h3>', unsafe_allow_html=True)
         with col3:
             if st.button("🏠", key="reset_button"):
+                st.session_state["chat_session"] = model.start_chat(history=[
+                    {"role": "user", "parts": [{"text": system_prompt}]},
+                    {"role": "model", "parts": [{"text": initial_messages[st.session_state["selected_language"]]}]},
+                    {"role": "model", "parts": [{"text": seasonal_notice[st.session_state["selected_language"]]}]}
+                ])
+                st.session_state.pop("chat_input", None)
+                st.success("대화가 리셋되었습니다." if st.session_state["selected_language"] == "한국어" else "Chat has been reset.")
+                st.rerun()
+        with col4:
+            selected_language = st.selectbox("Select your language", list(language_options.keys()), index=list(language_options.keys()).index(st.session_state["selected_language"]), key="language_select", label_visibility="collapsed")
+            if selected_language != st.session_state["selected_language"]:
+                st.session_state["selected_language"] = selected_language
                 st.session_state["chat_session"] = model.start_chat(history=[
                     {"role": "user", "parts": [{"text": system_prompt}]},
                     {"role": "model", "parts": [{"text": initial_messages[selected_language]}]},
                     {"role": "model", "parts": [{"text": seasonal_notice[selected_language]}]}
                 ])
-                st.session_state.pop("chat_input", None)
-                st.success("대화가 리셋되었습니다." if selected_language == "한국어" else "Chat has been reset.")
                 st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -205,7 +228,7 @@ with st.container():
     # 입력창 및 음성 버튼
     with st.container():
         st.markdown('<div class="chat-footer">', unsafe_allow_html=True)
-        if prompt := st.chat_input("키워드를 입력해 주세요" if selected_language == "한국어" else "Enter a keyword"):
+        if prompt := st.chat_input("키워드를 입력해 주세요" if st.session_state["selected_language"] == "한국어" else "Enter a keyword"):
             st.session_state["chat_input"] = prompt
 
         if "chat_input" in st.session_state and st.session_state["chat_input"]:
@@ -215,15 +238,15 @@ with st.container():
                 st.session_state["response"] = st.session_state.chat_session.send_message(st.session_state["chat_input"])
                 st.markdown(st.session_state["response"].text, unsafe_allow_html=True)
 
-        if st.button("음성으로 듣기" if selected_language == "한국어" else "Listen to Voice", key="audio_button") and "response" in st.session_state:
+        if st.button("음성으로 듣기" if st.session_state["selected_language"] == "한국어" else "Listen to Voice", key="audio_button") and "response" in st.session_state:
             try:
-                tts = gTTS(text=st.session_state["response"].text, lang=lang_code)
+                tts = gTTS(text=st.session_state["response"].text, lang=language_options[st.session_state["selected_language"]])
                 audio_buffer = io.BytesIO()
                 tts.write_to_fp(audio_buffer)
                 audio_buffer.seek(0)
                 st.audio(audio_buffer, format="audio/mp3")
             except Exception as e:
-                st.error(f"음성 변환 중 오류 발생: {str(e)}" if selected_language == "한국어" else f"Error during voice conversion: {str(e)}")
+                st.error(f"음성 변환 중 오류 발생: {str(e)}" if st.session_state["selected_language"] == "한국어" else f"Error during voice conversion: {str(e)}")
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
@@ -231,7 +254,7 @@ with st.container():
 # 사이드바 (LNB)
 if st.session_state.get("show_sidebar", False):
     with st.sidebar:
-        st.header(titles[selected_language])
+        st.header(titles[st.session_state["selected_language"]])
         st.markdown("아래 카테고리를 누르시면 관련 정보를 볼 수 있습니다.")
         with st.expander("검사 안내", expanded=True):
             for btn in ["초음파", "MRI", "CT", "금식", "당뇨약"]:

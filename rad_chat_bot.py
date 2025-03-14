@@ -81,7 +81,7 @@ lang_code = language_options[selected_language]
 
 # 제목 다국어 처리
 titles = {
-    "한국어": "영상의학과 안내 챗봇 (개인정보 넣지 마세요)",
+    "한국어": "영상의학과 챗봇 (개인정보 넣지 마세요)",
     "English": "Radiology Guidance Chatbot (Do Not Enter Personal Information)",
     "日本語": "放射線科案内チャットボット（個人情報は入力しないでください）",
     "中文 (简体)": "放射科指导聊天机器人（请勿输入个人信息）",

@@ -130,7 +130,7 @@ initial_messages = {
 }
 
 seasonal_notice = {
-    "한국어": "그 시기에 가장 유행하는 병에 대해 주의 문구: 2025년 3월에는 독감과 알레르기에 유의하세요. 손씻기와 마스크 착용을 권장합니다.",
+    "한국어": "2025년 3월에는 독감과 알레르기에 유의하세요. 손씻기와 마스크 착용을 권장합니다.",
     "English": "Notice about the most common diseases this season: In March 2025, please be cautious of flu and allergies. Hand washing and mask-wearing are recommended.",
     "日本語": "その時期に流行している病気に関する注意事項: 2025年3月はインフルエンザとアレルギーに注意してください。手洗いとマスク着用を推奨します。",
     "中文 (简体)": "关于本季最流行疾病的注意事项：2025年3月请注意流感和过敏症。建议勤洗手并佩戴口罩。",

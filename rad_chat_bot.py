@@ -77,7 +77,7 @@ language_options = {
     "中文 (简体)": "zh-CN",
     "Español": "es"
 }
-selected_language = st.selectbox("언어를 선택하세요", list(language_options.keys()), index=0, key="language_select")
+selected_language = st.selectbox("Select your language", list(language_options.keys()), index=0, key="language_select")
 lang_code = language_options[selected_language]
 
 # 제목 다국어 처리

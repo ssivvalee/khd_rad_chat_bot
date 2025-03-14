@@ -1,254 +1,194 @@
-import google.generativeai as genai
 import streamlit as st
 import os
 import io
-import json
 from gtts import gTTS
 import streamlit.components.v1 as components
 
-# 모바일 뷰포트 설정 (HTML 헤더에 추가)
+# 페이지 설정
 st.set_page_config(
-    page_title="영상의학과 안내 챗봇",
+    page_title="서울아산병원 챗봇",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
-st.markdown(
-    """
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+# CSS 스타일링 (서울아산병원 챗봇 스타일 모방)
+st.markdown("""
     <style>
-        /* 모바일 최적화 CSS */
+        /* 전체 컨테이너 */
+        .chat-container {
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 10px;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        /* 헤더 */
+        .chat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background-color: #005566;
+            color: white;
+            border-radius: 5px 5px 0 0;
+        }
+        .chat-header h3 {
+            margin: 0;
+            font-size: 18px;
+        }
+        /* 채팅 본문 */
+        .chat-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            background-color: #fff;
+        }
+        .chat-box h4 {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .bot-message {
+            background-color: #f1f1f1;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        /* 푸터 */
+        .chat-footer {
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-top: 1px solid #e0e0e0;
+        }
+        .user-input input {
+            width: 100%;
+            padding: 8px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        /* 모바일 최적화 */
         @media (max-width: 768px) {
-            .stApp {
-                max-width: 100%;
-                margin: 0;
-                padding: 10px;
+            .chat-container {
+                padding: 5px;
+                height: 95vh;
             }
-            .stButton>button {
-                width: 100%;
-                padding: 10px;
+            .chat-header h3 {
                 font-size: 16px;
-                margin-bottom: 10px;
             }
-            .stChatMessage {
-                font-size: 16px;
-                padding: 10px;
+            .chat-box h4 {
+                font-size: 14px;
             }
-            .stTextInput>div>input {
-                font-size: 16px;
-                padding: 10px;
+            .bot-message {
+                font-size: 14px;
             }
-            [data-testid="stSidebar"] {
-                width: 80% !important;
-                padding: 10px;
-            }
-            .stExpander {
-                margin-bottom: 10px;
-            }
-            .stExpander > div > div {
-                padding: 10px;
-            }
-        }
-        /* 데스크톱에서도 기본 스타일 유지 */
-        .stButton>button {
-            padding: 8px;
-            font-size: 14px;
-        }
-        .stChatMessage {
-            font-size: 14px;
-            padding: 8px;
         }
     </style>
-    """,
-    unsafe_allow_html=True
-)
+""", unsafe_allow_html=True)
 
-# API 키 설정
+# API 키 설정 (예시로 유지, 실제로는 사용하지 않음)
 api_key = os.getenv("GEMINI_API_KEY")
 if not api_key:
-    st.error("API 키가 설정되지 않았습니다. 관리자에게 문의하세요.")
-    st.stop()
-genai.configure(api_key=api_key)
+    st.warning("API 키가 설정되지 않았습니다. 이 예시는 더미 데이터로 실행됩니다.")
 
-# 언어 옵션 설정
-language_options = {
-    "한국어": "ko",
-    "English": "en",
-    "日本語": "ja",
-    "中文 (简体)": "zh-CN",
-    "Español": "es"
-}
-selected_language = st.selectbox("Select your language", list(language_options.keys()), index=0, key="language_select")
-lang_code = language_options[selected_language]
+# 세션 상태 초기화
+if "chat_history" not in st.session_state:
+    st.session_state["chat_history"] = [
+        {"role": "bot", "content": "안녕하세요? 서울아산병원 챗봇입니다.<br>문의 사항은 아래 카테고리를 선택하시거나, 키워드를 입력해 주세요."},
+        {"role": "bot", "content": "<div class='bot-message'><div class='ment'><p>공지사항</p><div class='disease_wrap'><div class='title'>마스크를 착용해 주세요.</div><div class='info'><dl>인플루엔자 유행 시기입니다. 병원 내에서는 마스크를 착용해 주시기 바랍니다.</dl></div></div></div></div>"}
+    ]
+if "show_lnb" not in st.session_state:
+    st.session_state["show_lnb"] = False
 
-# 제목 다국어 처리
-titles = {
-    "한국어": "검사 안내 봇 - 개인정보 NO",
-    "English": "Radiology Guidance Chatbot (Do Not Enter Personal Information)",
-    "日本語": "放射線科案内チャットボット（個人情報は入力しないでください）",
-    "中文 (简体)": "放射科指导聊天机器人（请勿输入个人信息）",
-    "Español": "Chatbot de Guía de Radiología (No Ingrese Información Personal)"
-}
+# 채팅 컨테이너 시작
+st.markdown('<div class="chat-container">', unsafe_allow_html=True)
 
-# 파일 읽기 함수
-def load_text_file(file_path):
-    with open(file_path, 'r', encoding='utf-8') as f:
-        return f.read()
+# 헤더
+with st.container():
+    st.markdown("""
+        <div class="chat-header">
+            <div id="lnb_menu"><a href="#" onclick="document.getElementById('show_lnb').click();"><img src="https://via.placeholder.com/24" alt="LNB-OPEN"></a></div>
+            <h3>서울아산병원 챗봇</h3>
+            <div class="loghome"><a href="#"><img src="https://via.placeholder.com/24" alt="home"></a></div>
+        </div>
+    """, unsafe_allow_html=True)
+    # 숨겨진 버튼으로 LNB 토글
+    if st.button("LNB 열기", key="show_lnb", help="메뉴 열기", type="primary"):
+        st.session_state["show_lnb"] = not st.session_state["show_lnb"]
 
-def load_json_file(file_path):
-    with open(file_path, 'r', encoding='utf-8') as f:
-        return json.load(f)
-
-# 데이터 로드
-inspection_guidelines = load_text_file("data/inspection_guidelines.txt")
-metformin_drugs = load_json_file("data/metformin_drugs.json")
-faq_questions = load_json_file("data/faq_questions.json")
-system_prompt_template = load_text_file("data/system_prompt.txt")
-
-# system_prompt에 데이터 삽입
-system_prompt = system_prompt_template.format(
-    inspection_guidelines=inspection_guidelines,
-    metformin_drugs=', '.join(metformin_drugs)
-)
-
-# 모델 로드 (가장 먼저 실행)
-@st.cache_resource
-def load_model():
-    model = genai.GenerativeModel('gemini-1.5-flash')
-    print("model loaded...")
-    return model
-
-# 모델을 먼저 정의
-model = load_model()
-
-# 초기 메시지 및 계절별 주의 문구 정의
-initial_messages = {
-    "한국어": "검사 유형(초음파, MRI, CT)을 말씀해 주세요. 금식이나 당뇨약에 대해 궁금하면 물어보세요.",
-    "English": "Please tell me the type of examination (ultrasound, MRI, CT). Feel free to ask about fasting or diabetes medication.",
-    "日本語": "検査の種類（超音波、MRI、CT）を教えてください。絶食や糖尿病薬について質問があればどうぞ。",
-    "中文 (简体)": "请告诉我检查类型（超声波、MRI、CT）。如果对禁食或糖尿病药物有疑问，请随时问我。",
-    "Español": "Por favor, dime el tipo de examen (ultrasonido, MRI, CT). Si tienes preguntas sobre ayuno o medicamentos para la diabetes, no dudes en preguntar."
-}
-
-seasonal_notice = {
-    "한국어": "2025년 3월에는 독감과 알레르기에 유의하세요. 손씻기와 마스크 착용을 권장합니다.",
-    "English": "Notice about the most common diseases this season: In March 2025, please be cautious of flu and allergies. Hand washing and mask-wearing are recommended.",
-    "日本語": "その時期に流行している病気に関する注意事項: 2025年3月はインフルエンザとアレルギーに注意してください。手洗いとマスク着用を推奨します。",
-    "中文 (简体)": "关于本季最流行疾病的注意事项：2025年3月请注意流感和过敏症。建议勤洗手并佩戴口罩。",
-    "Español": "Aviso sobre las enfermedades más comunes esta temporada: En marzo de 2025, tenga cuidado con la gripe y las alergias. Se recomienda lavarse las manos y usar mascarilla."
-}
-
-# 세션 초기화 (model 정의 후 실행)
-if "chat_session" not in st.session_state:
-    st.session_state["chat_session"] = model.start_chat(history=[
-        {"role": "user", "parts": [{"text": system_prompt}]},
-        {"role": "model", "parts": [{"text": initial_messages[selected_language]}]},
-        {"role": "model", "parts": [{"text": seasonal_notice[selected_language]}]}
-    ])
-
-# 상단 레이아웃: 제목, 햄버거 메뉴, 집 모양 아이콘
-col1, col2, col3 = st.columns([1, 8, 1])
-with col1:
-    if st.button("자주묻는질문(FAQ)", key="menu_button"):
-        st.session_state["show_sidebar"] = not st.session_state["show_sidebar"]
-        if st.session_state["show_sidebar"]:
-            # JavaScript를 통해 사이드바 강제 열기
-            components.html(
-                """
-                <script>
-                    // Streamlit의 기본 사이드바 토글 버튼을 찾아 클릭
-                    const sidebarToggle = document.querySelector('[data-testid="stSidebarCollapsedControl"]');
-                    if (sidebarToggle) {
-                        sidebarToggle.click();
-                    }
-                </script>
-                """,
-                height=0
-            )
-with col2:
-    st.title(titles[selected_language])
-with col3:
-    if st.button("대화리셋", key="reset_button"):
-        # 대화 리셋 로직
-        st.session_state["chat_session"] = model.start_chat(history=[
-            {"role": "user", "parts": [{"text": system_prompt}]},
-            {"role": "model", "parts": [{"text": initial_messages[selected_language]}]},
-            {"role": "model", "parts": [{"text": seasonal_notice[selected_language]}]}
-        ])
-        st.session_state.pop("chat_input", None)  # 입력값 초기화
-        st.session_state.pop("response", None)    # 응답 초기화
-        st.success("대화가 리셋되었습니다." if selected_language == "한국어" else "Chat has been reset.")
-        st.rerun()  # 화면 새로고침
-
-# 햄버거 메뉴 토글 상태 관리
-if "show_sidebar" not in st.session_state:
-    st.session_state["show_sidebar"] = False
-
-# 사이드바에 FAQ 버튼 표시
-if st.session_state["show_sidebar"]:
+# LNB 메뉴 (사이드바)
+if st.session_state["show_lnb"]:
     with st.sidebar:
-        st.header("영상의학과 챗봇")
-        st.markdown("아래 카테고리를 누르시면 카테고리 매뉴 한눈에 알아볼 수 있습니다.")
+        st.markdown('<div class="allSearchWrap window">', unsafe_allow_html=True)
+        st.markdown('<div class="lnb_close"><a href="#" onclick="document.getElementById(\'hide_lnb\').click();"><img src="https://via.placeholder.com/24" alt="LNB-CLOSE"></a></div>', unsafe_allow_html=True)
+        st.markdown('<p class="txt">아래 키워드를 누르시면 키워드 메인 화면으로 이동합니다.</p>', unsafe_allow_html=True)
+        
+        categories = {
+            "진료/검사": ["진료예약", "진료변경/취소", "검사예약/변경/취소", "내원", "진료관련", "약제"],
+            "원무": ["수납", "입원/퇴원", "기타 문의"],
+            "발급안내": ["증명서", "증명서 (홈페이지)", "의무기록", "동의서/위임장", "기타"],
+            "병원이용 안내": ["오시는길", "주차", "편의시설", "전화번호안내", "출입", "칭찬코너", "고객의소리", "기타"],
+            "홈페이지 이용": ["회원", "진료예약", "본인인증", "나의차트", "고객서비스"],
+            "암병원": ["진료/검사", "암병원 소개"],
+            "건강검진": ["문진 작성", "예약 관련", "검사 관련", "결과 관련", "기타"],
+            "서울아산병원 앱": ["앱 관련", "회원서비스", "진료예약/취소", "앱 메뉴"]
+        }
+        
+        for category, subcategories in categories.items():
+            with st.expander(category, expanded=False):
+                for subcategory in subcategories:
+                    if st.button(subcategory, key=f"lnb_{subcategory}"):
+                        st.session_state["chat_history"].append({"role": "user", "content": subcategory})
+                        st.session_state["chat_history"].append({"role": "bot", "content": f"{subcategory}에 대한 정보를 준비 중입니다."})
+                        st.session_state["show_lnb"] = False
+        st.markdown('</div>', unsafe_allow_html=True)
+        if st.button("LNB 닫기", key="hide_lnb"):
+            st.session_state["show_lnb"] = False
 
-        # 건강검진 카테고리 (기본적으로 펼쳐짐)
-        with st.expander("건강검진", expanded=True):
-            for btn in ["건강검사", "건강보험/검소", "검사예약/방사/검소", "내진", "진료관련"]:
-                if st.button(btn, key=f"faq_{btn}"):
-                    st.session_state["chat_input"] = btn
+# 채팅 본문
+with st.container():
+    st.markdown('<div class="chat-body"><div class="chat-box" id="chatBox"><h4>무엇을 도와드릴까요?</h4><div id="notinoti">', unsafe_allow_html=True)
+    for message in st.session_state["chat_history"]:
+        if message["role"] == "bot":
+            st.markdown(f'<div class="bot-message">{message["content"]}</div>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div>{message["content"]}</div>', unsafe_allow_html=True)
+    st.markdown('</div></div></div>', unsafe_allow_html=True)
 
-        # 업무 카테고리 (기본적으로 펼쳐짐)
-        with st.expander("업무", expanded=True):
-            for btn in ["마스크 착용해 주세요.", "입원/퇴원", "기타 문진"]:
-                if st.button(btn, key=f"faq_{btn}"):
-                    st.session_state["chat_input"] = btn
+# 푸터 (입력 영역)
+with st.container():
+    st.markdown('<div class="chat-footer"><div class="user-input">', unsafe_allow_html=True)
+    user_input = st.text_input("키워드 입력 후 자동 완성 목록에서 선택해 주세요.", max_chars=30, key="user_input")
+    if user_input:
+        st.session_state["chat_history"].append({"role": "user", "content": user_input})
+        # 더미 응답 (API 대신)
+        st.session_state["chat_history"].append({"role": "bot", "content": f"'{user_input}'에 대한 답변을 준비 중입니다."})
+        st.rerun()
+    st.markdown('</div></div>', unsafe_allow_html=True)
 
-        # 안내문내 카테고리 (기본적으로 펼쳐짐)
-        with st.expander("안내문내", expanded=True):
-            for btn in ["증명서", "증명서 (출판/자격)", "의무기록", "동의서/위임장", "기타"]:
-                if st.button(btn, key=f"faq_{btn}"):
-                    st.session_state["chat_input"] = btn
+# 채팅 컨테이너 닫기
+st.markdown('</div>', unsafe_allow_html=True)
 
-        # 병실이용 안내 카테고리 (기본적으로 펼쳐짐)
-        with st.expander("병실이용 안내", expanded=True):
-            for btn in ["오시는길", "주차", "편의시설", "전화번호안내", "출입", "참관코너"]:
-                if st.button(btn, key=f"faq_{btn}"):
-                    st.session_state["chat_input"] = btn
+# 스크롤 맨 아래로 이동 (JavaScript)
+st.markdown("""
+    <script>
+        var chatBox = document.getElementById("chatBox");
+        chatBox.scrollTop = chatBox.scrollHeight;
+    </script>
+""", unsafe_allow_html=True)
 
-        # 웹페이지 이용 카테고리 (기본적으로 펼쳐짐)
-        with st.expander("웹페이지 이용", expanded=True):
-            for btn in ["회원", "진료예약", "본인인증", "내사처비스", "고객서비스"]:
-                if st.button(btn, key=f"faq_{btn}"):
-                    st.session_state["chat_input"] = btn
-
-        # 건강검사 카테고리 (기본적으로 펼쳐짐)
-        with st.expander("건강검사", expanded=True):
-            for btn in ["영상의 소게"]:
-                if st.button(btn, key=f"faq_{btn}"):
-                    st.session_state["chat_input"] = btn
-
-# 메인 화면 레이아웃
-for content in st.session_state.chat_session.history[2:]:
-    with st.chat_message("ai" if content.role == "model" else "user"):
-        st.markdown(content.parts[0].text)
-
-if prompt := st.chat_input("무엇이든 물어보세요" if selected_language == "한국어" else "Ask anything"):
-    st.session_state["chat_input"] = prompt
-
-if "chat_input" in st.session_state and st.session_state["chat_input"]:
-    with st.chat_message("user"):
-        st.markdown(st.session_state["chat_input"])
-    with st.chat_message("ai"):
-        st.session_state["response"] = st.session_state.chat_session.send_message(st.session_state["chat_input"])
-        st.markdown(st.session_state["response"].text)
-
-# 음성 버튼
-if st.button("음성으로 듣기" if selected_language == "한국어" else "Listen to Voice", key="audio_button"):
+# 음성 출력 버튼 (원래 코드에서 유지)
+if st.button("음성으로 듣기", key="audio_button"):
+    last_bot_message = next((m["content"] for m in reversed(st.session_state["chat_history"]) if m["role"] == "bot"), "")
     try:
-        tts = gTTS(text=st.session_state["response"].text, lang=lang_code)
+        tts = gTTS(text=last_bot_message.replace('<br>', ' ').replace('<div.*?>', '').replace('</div>', ''), lang="ko")
         audio_buffer = io.BytesIO()
         tts.write_to_fp(audio_buffer)
         audio_buffer.seek(0)
         st.audio(audio_buffer, format="audio/mp3")
-    except ImportError:
-        st.error("음성 기능(gTTS)이 설치되지 않았습니다. 관리자에게 문의하세요." if selected_language == "한국어" else "Voice function (gTTS) is not installed. Contact the administrator.")
     except Exception as e:
-        st.error(f"음성 변환 중 오류 발생: {str(e)}" if selected_language == "한국어" else f"Error during voice conversion: {str(e)}")
+        st.error(f"음성 변환 중 오류 발생: {str(e)}")

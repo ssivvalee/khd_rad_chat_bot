@@ -23,9 +23,17 @@ language_options = {
 selected_language = st.sidebar.selectbox("언어를 선택하세요", list(language_options.keys()), index=0)
 lang_code = language_options[selected_language]
 
-# 사이드바 메뉴 (이미지 스타일 반영)
-st.sidebar.image("path_to_logo.png", use_column_width=True)  # 로고 이미지 추가 (필요 시 경로 수정)
+# 사이드바 메뉴 (이미지 로드 오류 처리 추가)
 st.sidebar.subheader("메뉴")
+try:
+    logo_path = "path_to_logo.png"  # 실제 로고 파일 경로로 변경
+    if os.path.exists(logo_path):
+        st.sidebar.image(logo_path, use_container_width=True)  # use_column_width 대신 use_container_width 사용
+    else:
+        st.sidebar.warning("로고 이미지를 찾을 수 없습니다. 파일 경로를 확인하세요.")
+except Exception as e:
+    st.sidebar.error(f"이미지 로드 중 오류 발생: {str(e)}")
+
 menu_options = ["검사날짜 찾기", "언론날짜 찾기", "자궁 문진표", "상담 전화내역", "문의하기"]
 selected_menu = st.sidebar.radio("", menu_options)
 
@@ -118,6 +126,6 @@ if st.button("음성으로 듣기" if selected_language == "한국어" else "Lis
         audio_buffer.seek(0)
         st.audio(audio_buffer, format="audio/mp3")
     except ImportError:
-        st.error("음성 기능(gTTS)이 설치되지 않았습니다. 관리자에게 문의하세요。" if selected_language == "한국어" else "Voice function (gTTS) is not installed. Contact the administrator.")
+        st.error("음성 기능(gTTS)이 설치되지 않았습니다. 관리자에게 문의하세요." if selected_language == "한국어" else "Voice function (gTTS) is not installed. Contact the administrator.")
     except Exception as e:
         st.error(f"음성 변환 중 오류 발생: {str(e)}" if selected_language == "한국어" else f"Error during voice conversion: {str(e)}")

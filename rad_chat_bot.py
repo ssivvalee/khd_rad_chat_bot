@@ -31,7 +31,26 @@ titles = {
     "中文 (简体)": "放射科指导聊天机器人（请勿输入个人信息）",
     "Español": "Chatbot de Guía de Radiología (No Ingrese Información Personal)"
 }
-st.title(titles[selected_language])
+
+# 상단 레이아웃: 제목, 햄버거 메뉴, 집 모양 아이콘
+col1, col2, col3 = st.columns([1, 8, 1])
+with col1:
+    if st.button("☰", key="menu_button"):
+        st.session_state["show_sidebar"] = not st.session_state["show_sidebar"]
+with col2:
+    st.title(titles[selected_language])
+with col3:
+    if st.button("🏠", key="reset_button"):
+        # 대화 리셋 로직
+        st.session_state["chat_session"] = model.start_chat(history=[
+            {"role": "user", "parts": [{"text": system_prompt}]},
+            {"role": "model", "parts": [{"text": initial_messages[selected_language]}]},
+            {"role": "model", "parts": [{"text": seasonal_notice[selected_language]}]}  # 추가 주의 문구
+        ])
+        st.session_state.pop("chat_input", None)  # 입력값 초기화
+        st.session_state.pop("response", None)    # 응답 초기화
+        st.success("대화가 리셋되었습니다." if selected_language == "한국어" else "Chat has been reset.")
+        st.experimental_rerun()  # 화면 새로고침
 
 # 파일 읽기 함수
 def load_text_file(file_path):
@@ -42,8 +61,8 @@ def load_json_file(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
         return json.load(f)
 
-# 데이터 로드 (언어별 파일을 준비할 경우 파일 경로를 동적으로 변경 가능)
-inspection_guidelines = load_text_file("data/inspection_guidelines.txt")  # 언어별 파일 추가 가능
+# 데이터 로드
+inspection_guidelines = load_text_file("data/inspection_guidelines.txt")
 metformin_drugs = load_json_file("data/metformin_drugs.json")
 faq_questions = load_json_file("data/faq_questions.json")
 system_prompt_template = load_text_file("data/system_prompt.txt")
@@ -62,7 +81,7 @@ def load_model():
 
 model = load_model()
 
-# 세션 초기화 (언어에 따라 초기 메시지 변경 가능)
+# 세션 초기화 (언어에 따라 초기 메시지 및 계절별 주의 문구 변경 가능)
 if "chat_session" not in st.session_state:
     initial_messages = {
         "한국어": "알겠습니다! 검사 유형(초음파, MRI, CT)을 말씀해 주세요. 금식이나 당뇨약에 대해 궁금하면 물어보세요.",
@@ -71,40 +90,81 @@ if "chat_session" not in st.session_state:
         "中文 (简体)": "明白了！请告诉我检查类型（超声波、MRI、CT）。如果对禁食或糖尿病药物有疑问，请随时问我。",
         "Español": "¡Entendido! Por favor, dime el tipo de examen (ultrasonido, MRI, CT). Si tienes preguntas sobre ayuno o medicamentos para la diabetes, no dudes en preguntar."
     }
+
+    seasonal_notice = {
+        "한국어": "그 시기에 가장 유행하는 병에 대해 주의 문구: 2025년 3월에는 독감과 알레르기에 유의하세요. 손씻기와 마스크 착용을 권장합니다.",
+        "English": "Notice about the most common diseases this season: In March 2025, please be cautious of flu and allergies. Hand washing and mask-wearing are recommended.",
+        "日本語": "その時期に流行している病気に関する注意事項: 2025年3月はインフルエンザとアレルギーに注意してください。手洗いとマスク着用を推奨します。",
+        "中文 (简体)": "关于本季最流行疾病的注意事项：2025年3月请注意流感和过敏症。建议勤洗手并佩戴口罩。",
+        "Español": "Aviso sobre las enfermedades más comunes esta temporada: En marzo de 2025, tenga cuidado con la gripe y las alergias. Se recomienda lavarse las manos y usar mascarilla."
+    }
+
     st.session_state["chat_session"] = model.start_chat(history=[
         {"role": "user", "parts": [{"text": system_prompt}]},
-        {"role": "model", "parts": [{"text": initial_messages[selected_language]}]}
+        {"role": "model", "parts": [{"text": initial_messages[selected_language]}]},
+        {"role": "model", "parts": [{"text": seasonal_notice[selected_language]}]}  # 초기 로드 시 계절별 주의 문구 추가
     ])
 
-# 화면 레이아웃
-col1, col2, col3 = st.columns([1, 2, 1])
+# 햄버거 메뉴 토글 상태 관리
+if "show_sidebar" not in st.session_state:
+    st.session_state["show_sidebar"] = False
 
-with col1:
-    st.subheader("자주 묻는 질문 (1)" if selected_language == "한국어" else "Frequently Asked Questions (1)")
-    for i in range(0, len(faq_questions)//2):
-        if st.button(faq_questions[i], key=f"faq_left_{i}"):
-            st.session_state["chat_input"] = faq_questions[i]
+# 사이드바에 FAQ 버튼 표시
+if st.session_state["show_sidebar"]:
+    with st.sidebar:
+        st.header("서울아산병원 챗봇")
+        st.markdown("아래 카테고리를 누르시면 카테고리 매뉴 한눈에 알아볼 수 있습니다.")
 
-with col3:
-    st.subheader("자주 묻는 질문 (2)" if selected_language == "한국어" else "Frequently Asked Questions (2)")
-    for i in range(len(faq_questions)//2, len(faq_questions)):
-        if st.button(faq_questions[i], key=f"faq_right_{i}"):
-            st.session_state["chat_input"] = faq_questions[i]
+        # 건강검진 카테고리
+        with st.expander("건강검진"):
+            for btn in ["건강검사", "건강보험/검소", "검사예약/방사/검소", "내진", "진료관련"]:
+                if st.button(btn, key=f"faq_{btn}"):
+                    st.session_state["chat_input"] = btn
 
-with col2:
-    for content in st.session_state.chat_session.history[2:]:
-        with st.chat_message("ai" if content.role == "model" else "user"):
-            st.markdown(content.parts[0].text)
+        # 업무 카테고리
+        with st.expander("업무"):
+            for btn in ["마스크 착용해 주세요.", "입원/퇴원", "기타 문진"]:
+                if st.button(btn, key=f"faq_{btn}"):
+                    st.session_state["chat_input"] = btn
 
-    if prompt := st.chat_input("무엇이든 물어보세요" if selected_language == "한국어" else "Ask anything"):
-        st.session_state["chat_input"] = prompt
+        # 안내문내 카테고리
+        with st.expander("안내문내"):
+            for btn in ["증명서", "증명서 (출판/자격)", "의무기록", "동의서/위임장", "기타"]:
+                if st.button(btn, key=f"faq_{btn}"):
+                    st.session_state["chat_input"] = btn
 
-    if "chat_input" in st.session_state and st.session_state["chat_input"]:
-        with st.chat_message("user"):
-            st.markdown(st.session_state["chat_input"])
-        with st.chat_message("ai"):
-            st.session_state["response"] = st.session_state.chat_session.send_message(st.session_state["chat_input"])
-            st.markdown(st.session_state["response"].text)
+        # 병실이용 안내 카테고리
+        with st.expander("병실이용 안내"):
+            for btn in ["오시는길", "주차", "편의시설", "전화번호안내", "출입", "참관코너"]:
+                if st.button(btn, key=f"faq_{btn}"):
+                    st.session_state["chat_input"] = btn
+
+        # 웹페이지 이용 카테고리
+        with st.expander("웹페이지 이용"):
+            for btn in ["회원", "진료예약", "본인인증", "내사처비스", "고객서비스"]:
+                if st.button(btn, key=f"faq_{btn}"):
+                    st.session_state["chat_input"] = btn
+
+        # 건강검사 카테고리
+        with st.expander("건강검사"):
+            for btn in ["영상의 소게"]:
+                if st.button(btn, key=f"faq_{btn}"):
+                    st.session_state["chat_input"] = btn
+
+# 메인 화면 레이아웃
+for content in st.session_state.chat_session.history[2:]:
+    with st.chat_message("ai" if content.role == "model" else "user"):
+        st.markdown(content.parts[0].text)
+
+if prompt := st.chat_input("무엇이든 물어보세요" if selected_language == "한국어" else "Ask anything"):
+    st.session_state["chat_input"] = prompt
+
+if "chat_input" in st.session_state and st.session_state["chat_input"]:
+    with st.chat_message("user"):
+        st.markdown(st.session_state["chat_input"])
+    with st.chat_message("ai"):
+        st.session_state["response"] = st.session_state.chat_session.send_message(st.session_state["chat_input"])
+        st.markdown(st.session_state["response"].text)
 
 # 음성 버튼
 if st.button("음성으로 듣기" if selected_language == "한국어" else "Listen to Voice", key="audio_button"):
@@ -115,6 +175,6 @@ if st.button("음성으로 듣기" if selected_language == "한국어" else "Lis
         audio_buffer.seek(0)
         st.audio(audio_buffer, format="audio/mp3")
     except ImportError:
-        st.error("음성 기능(gTTS)이 설치되지 않았습니다. 관리자에게 문의하세요。" if selected_language == "한국어" else "Voice function (gTTS) is not installed. Contact the administrator.")
+        st.error("음성 기능(gTTS)이 설치되지 않았습니다. 관리자에게 문의하세요." if selected_language == "한국어" else "Voice function (gTTS) is not installed. Contact the administrator.")
     except Exception as e:
         st.error(f"음성 변환 중 오류 발생: {str(e)}" if selected_language == "한국어" else f"Error during voice conversion: {str(e)}")

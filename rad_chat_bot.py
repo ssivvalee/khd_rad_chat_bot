@@ -66,7 +66,7 @@ language_options = {"한국어": "ko", "English": "en", "日本語": "ja", "中�
 selected_language = st.selectbox("언어 선택", list(language_options.keys()), index=0, key="language_select")
 lang_code = language_options[selected_language]
 
-# 다국어 제목 ("서울아산병원"을 "영상의학과"로 대체)
+# 다국어 제목
 titles = {
     "한국어": "영상의학과 챗봇",
     "English": "Radiology Chatbot",
@@ -84,7 +84,6 @@ def load_text_file(file_path):
         return ""
 
 inspection_guidelines = load_text_file("data/inspection_guidelines.txt")
-# 시스템 프롬프트에서 "서울아산병원"을 "영상의학과"로 대체
 system_prompt = f"당신은 영상의학과 챗봇입니다. 다음 가이드라인을 참고하세요:\n{inspection_guidelines}"
 
 # 모델 로드
@@ -94,7 +93,7 @@ def load_model():
 
 model = load_model()
 
-# 초기 메시지 ("서울아산병원"을 "영상의학과"로 대체)
+# 초기 메시지 및 공지사항
 initial_messages = {
     "한국어": "안녕하세요? 영상의학과 챗봇입니다. 검사 유형(초음파, MRI, CT)을 말씀해 주세요.",
     "English": "Hello! This is the Radiology Chatbot. Please specify the exam type (ultrasound, MRI, CT).",
@@ -132,7 +131,7 @@ def check_session_timeout():
 # 헤더
 col1, col2, col3 = st.columns([1, 8, 1])
 with col1:
-    # 메뉴 버튼
+    # 메뉴 버튼 (가시성 개선 및 즉시 사이드바 열기)
     menu_label = "메뉴" if selected_language == "한국어" else "Menu"
     if st.button(menu_label, key="menu_button"):
         st.session_state["show_sidebar"] = True

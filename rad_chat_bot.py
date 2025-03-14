@@ -148,7 +148,7 @@ if "chat_session" not in st.session_state:
 # 상단 레이아웃: 제목, 햄버거 메뉴, 집 모양 아이콘
 col1, col2, col3 = st.columns([1, 8, 1])
 with col1:
-    if st.button("F", key="menu_button"):
+    if st.button("자주묻는질문(FAQ)", key="menu_button"):
         st.session_state["show_sidebar"] = not st.session_state["show_sidebar"]
         if st.session_state["show_sidebar"]:
             # JavaScript를 통해 사이드바 강제 열기
@@ -167,7 +167,7 @@ with col1:
 with col2:
     st.title(titles[selected_language])
 with col3:
-    if st.button("🏠", key="reset_button"):
+    if st.button("대화초기화(Reset Chatting", key="reset_button"):
         # 대화 리셋 로직
         st.session_state["chat_session"] = model.start_chat(history=[
             {"role": "user", "parts": [{"text": system_prompt}]},

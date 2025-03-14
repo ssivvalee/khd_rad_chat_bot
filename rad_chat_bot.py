@@ -23,21 +23,13 @@ language_options = {
 selected_language = st.sidebar.selectbox("언어를 선택하세요", list(language_options.keys()), index=0)
 lang_code = language_options[selected_language]
 
-# 사이드바 메뉴 (이미지 로드 오류 처리 추가)
-st.sidebar.subheader("메뉴")
-try:
-    logo_path = "path_to_logo.png"  # 실제 로고 파일 경로로 변경
-    if os.path.exists(logo_path):
-        st.sidebar.image(logo_path, use_container_width=True)  # use_column_width 대신 use_container_width 사용
-    else:
-        st.sidebar.warning("로고 이미지를 찾을 수 없습니다. 파일 경로를 확인하세요.")
-except Exception as e:
-    st.sidebar.error(f"이미지 로드 중 오류 발생: {str(e)}")
-
+# 사이드바 (항상 노출되도록 설정)
+st.sidebar.subheader("언급 언급하세요" if selected_language == "한국어" else "Mention Mention")
+st.sidebar.markdown("로고 이미지를 축소할 수 없습니다." if selected_language == "한국어" else "Cannot shrink logo image.")
 menu_options = ["검사날짜 찾기", "언론날짜 찾기", "자궁 문진표", "상담 전화내역", "문의하기"]
 selected_menu = st.sidebar.radio("", menu_options)
 
-# 제목 다국어 처리 (영상의학과로 변경)
+# 제목 다국어 처리
 titles = {
     "한국어": "영상의학과 안내 챗봇 서비스",
     "English": "Radiology Guidance Chatbot Service",
@@ -46,14 +38,6 @@ titles = {
     "Español": "Servicio de Chatbot de Guía de Radiología"
 }
 st.title(titles[selected_language])
-
-# 챗봇 버튼 (파란색 스타일)
-if st.button("영상의학과 안내 챗봇 서비스" if selected_language == "한국어" else "Radiology Guidance Chatbot Service", 
-             key="chatbot_button", 
-             help="운영 발신키 플랫폼에 탑재된 답변으로", 
-             use_container_width=True, 
-             type="primary"):
-    st.session_state["chat_input"] = "start"
 
 # 파일 읽기 함수
 def load_text_file(file_path):
@@ -84,7 +68,7 @@ def load_model():
 
 model = load_model()
 
-# 세션 초기화 (영상의학과 컨텍스트로 변경)
+# 세션 초기화
 if "chat_session" not in st.session_state:
     initial_messages = {
         "한국어": "안녕하세요! 검사 유형(초음파, MRI, CT)을 말씀해 주세요. 금식이나 당뇨약에 대해 궁금하면 물어보세요.",
@@ -98,13 +82,36 @@ if "chat_session" not in st.session_state:
         {"role": "model", "parts": [{"text": initial_messages[selected_language]}]}
     ])
 
+# FAQ 섹션 (이미지 스타일 반영)
+faq_data = [
+    {
+        "question": "CT 검사의 금식 시간 조정과 사전 예약 여부에 대해 알려주세요.",
+        "answer": "조영제를 사용하는 CT 검사의 경우, 6시간 금식이 필요합니다. 조영제를 사용하지 않는 검사라면 금식이 필요 없을 수도 있습니다. 가정 정확한 정보는 노관석 검사 안내자 스티커를 확인하세요. 만약 입원이나 스티커를 찾을 수 없다면 예약한 의학에서 확인하는 것을 추천합니다."
+    },
+    {
+        "question": "써야 금식은 몇시?",
+        "answer": "써야 금식은 몇시? (질문을 클릭하면 답변을 확인할 수 있습니다.)"
+    },
+    {
+        "question": "CT 검사의 금식 시간 조정과 사전 예약 여부에 대해 알려주세요.",
+        "answer": "조영제를 사용하는 CT 검사의 경우, 6시간 금식이 필요합니다. 조영제를 사용하지 않는 검사라면 금식이 필요 없을 수도 있습니다. 가정 정확한 정보는 노관석 검사 안내자 스티커를 확인하세요. 만약 입원이나 스티커를 찾을 수 없다면 예약한 의학에서 확인하는 것을 추천합니다."
+    }
+]
+
+for i, faq in enumerate(faq_data):
+    with st.expander(faq["question"], expanded=False):
+        st.markdown(faq["answer"])
+        # 써야 금식은 몇시? 버튼 (이미지와 동일한 스타일)
+        if st.button("써야 금식은 몇시?" if selected_language == "한국어" else "What time is fasting required?", key=f"faq_button_{i}"):
+            st.session_state["chat_input"] = faq["question"]
+
+# 경고 메시지 (노란색 배경)
+st.warning("환자 본인이 직접 문의하셔야 합니다. 건강 상담은 의료진과 상의하세요.")
+
 # 대화 창
 for content in st.session_state.chat_session.history[2:]:
     with st.chat_message("ai" if content.role == "model" else "user"):
         st.markdown(content.parts[0].text)
-
-# 경고 메시지 (주황색 배경, 영상의학과에 맞게 조정)
-st.warning("환자 본인이 직접 문의하셔야 합니다. 건강 상담은 의료진과 상의하세요.")
 
 # 입력 창
 if prompt := st.chat_input("대화를 종료하시겠습니까?" if selected_language == "한국어" else "Would you like to end the conversation?"):

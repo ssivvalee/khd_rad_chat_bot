@@ -37,18 +37,18 @@ except Exception as e:
 menu_options = ["검사날짜 찾기", "언론날짜 찾기", "자궁 문진표", "상담 전화내역", "문의하기"]
 selected_menu = st.sidebar.radio("", menu_options)
 
-# 제목 다국어 처리
+# 제목 다국어 처리 (영상의학과로 변경)
 titles = {
-    "한국어": "소아청소년 상담 챗봇 서비스",
-    "English": "Pediatric Counseling Chatbot Service",
-    "日本語": "小児青少年相談チャットボットサービス",
-    "中文 (简体)": "儿科咨询聊天机器人服务",
-    "Español": "Servicio de Chatbot de Consejería Pediátrica"
+    "한국어": "영상의학과 안내 챗봇 서비스",
+    "English": "Radiology Guidance Chatbot Service",
+    "日本語": "放射線科案内チャットボットサービス",
+    "中文 (简体)": "放射科指导聊天机器人服务",
+    "Español": "Servicio de Chatbot de Guía de Radiología"
 }
 st.title(titles[selected_language])
 
 # 챗봇 버튼 (파란색 스타일)
-if st.button("소아청소년 상담 챗봇 서비스" if selected_language == "한국어" else "Pediatric Counseling Chatbot Service", 
+if st.button("영상의학과 안내 챗봇 서비스" if selected_language == "한국어" else "Radiology Guidance Chatbot Service", 
              key="chatbot_button", 
              help="운영 발신키 플랫폼에 탑재된 답변으로", 
              use_container_width=True, 
@@ -84,14 +84,14 @@ def load_model():
 
 model = load_model()
 
-# 세션 초기화
+# 세션 초기화 (영상의학과 컨텍스트로 변경)
 if "chat_session" not in st.session_state:
     initial_messages = {
-        "한국어": "안녕하세요! 아이와 관련된 고민이 있으시다면 편하게 이야기해주세요.",
-        "English": "Hello! If you have any concerns about your child, feel free to talk.",
-        "日本語": "こんにちは！お子様に関する悩みがあれば気軽にお話しください。",
-        "中文 (简体)": "你好！如果有关于孩子的烦恼，请随时告诉我。",
-        "Español": "¡Hola! Si tienes alguna preocupación sobre tu hijo, no dudes en hablar."
+        "한국어": "안녕하세요! 검사 유형(초음파, MRI, CT)을 말씀해 주세요. 금식이나 당뇨약에 대해 궁금하면 물어보세요.",
+        "English": "Hello! Please tell me the type of examination (ultrasound, MRI, CT). Feel free to ask about fasting or diabetes medication.",
+        "日本語": "こんにちは！検査の種類（超音波、MRI、CT）を教えてください。絶食や糖尿病薬について質問があればどうぞ。",
+        "中文 (简体)": "你好！请告诉我检查类型（超声波、MRI、CT）。如果对禁食或糖尿病药物有疑问，请随时问我。",
+        "Español": "¡Hola! Por favor, dime el tipo de examen (ultrasonido, MRI, CT). Si tienes preguntas sobre ayuno o medicamentos para la diabetes, no dudes en preguntar."
     }
     st.session_state["chat_session"] = model.start_chat(history=[
         {"role": "user", "parts": [{"text": system_prompt}]},
@@ -103,8 +103,8 @@ for content in st.session_state.chat_session.history[2:]:
     with st.chat_message("ai" if content.role == "model" else "user"):
         st.markdown(content.parts[0].text)
 
-# 경고 메시지 (주황색 배경)
-st.warning("아이 부모님이 직접 문의하셔야 합니다. 아이 본인은 건강 상담을 통해 예약이 많습니다.")
+# 경고 메시지 (주황색 배경, 영상의학과에 맞게 조정)
+st.warning("환자 본인이 직접 문의하셔야 합니다. 건강 상담은 의료진과 상의하세요.")
 
 # 입력 창
 if prompt := st.chat_input("대화를 종료하시겠습니까?" if selected_language == "한국어" else "Would you like to end the conversation?"):

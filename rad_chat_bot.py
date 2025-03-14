@@ -23,15 +23,29 @@ language_options = {
 selected_language = st.sidebar.selectbox("언어를 선택하세요", list(language_options.keys()), index=0)
 lang_code = language_options[selected_language]
 
+# 사이드바 메뉴 (이미지 스타일 반영)
+st.sidebar.image("path_to_logo.png", use_column_width=True)  # 로고 이미지 추가 (필요 시 경로 수정)
+st.sidebar.subheader("메뉴")
+menu_options = ["검사날짜 찾기", "언론날짜 찾기", "자궁 문진표", "상담 전화내역", "문의하기"]
+selected_menu = st.sidebar.radio("", menu_options)
+
 # 제목 다국어 처리
 titles = {
-    "한국어": "영상의학과 안내 챗봇 (개인정보 넣지 마세요)",
-    "English": "Radiology Guidance Chatbot (Do Not Enter Personal Information)",
-    "日本語": "放射線科案内チャットボット（個人情報は入力しないでください）",
-    "中文 (简体)": "放射科指导聊天机器人（请勿输入个人信息）",
-    "Español": "Chatbot de Guía de Radiología (No Ingrese Información Personal)"
+    "한국어": "소아청소년 상담 챗봇 서비스",
+    "English": "Pediatric Counseling Chatbot Service",
+    "日本語": "小児青少年相談チャットボットサービス",
+    "中文 (简体)": "儿科咨询聊天机器人服务",
+    "Español": "Servicio de Chatbot de Consejería Pediátrica"
 }
 st.title(titles[selected_language])
+
+# 챗봇 버튼 (파란색 스타일)
+if st.button("소아청소년 상담 챗봇 서비스" if selected_language == "한국어" else "Pediatric Counseling Chatbot Service", 
+             key="chatbot_button", 
+             help="운영 발신키 플랫폼에 탑재된 답변으로", 
+             use_container_width=True, 
+             type="primary"):
+    st.session_state["chat_input"] = "start"
 
 # 파일 읽기 함수
 def load_text_file(file_path):
@@ -42,8 +56,8 @@ def load_json_file(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
         return json.load(f)
 
-# 데이터 로드 (언어별 파일을 준비할 경우 파일 경로를 동적으로 변경 가능)
-inspection_guidelines = load_text_file("data/inspection_guidelines.txt")  # 언어별 파일 추가 가능
+# 데이터 로드
+inspection_guidelines = load_text_file("data/inspection_guidelines.txt")
 metformin_drugs = load_json_file("data/metformin_drugs.json")
 faq_questions = load_json_file("data/faq_questions.json")
 system_prompt_template = load_text_file("data/system_prompt.txt")
@@ -62,49 +76,38 @@ def load_model():
 
 model = load_model()
 
-# 세션 초기화 (언어에 따라 초기 메시지 변경 가능)
+# 세션 초기화
 if "chat_session" not in st.session_state:
     initial_messages = {
-        "한국어": "알겠습니다! 검사 유형(초음파, MRI, CT)을 말씀해 주세요. 금식이나 당뇨약에 대해 궁금하면 물어보세요.",
-        "English": "Understood! Please tell me the type of examination (ultrasound, MRI, CT). Feel free to ask about fasting or diabetes medication.",
-        "日本語": "了解しました！検査の種類（超音波、MRI、CT）を教えてください。絶食や糖尿病薬について質問があればどうぞ。",
-        "中文 (简体)": "明白了！请告诉我检查类型（超声波、MRI、CT）。如果对禁食或糖尿病药物有疑问，请随时问我。",
-        "Español": "¡Entendido! Por favor, dime el tipo de examen (ultrasonido, MRI, CT). Si tienes preguntas sobre ayuno o medicamentos para la diabetes, no dudes en preguntar."
+        "한국어": "안녕하세요! 아이와 관련된 고민이 있으시다면 편하게 이야기해주세요.",
+        "English": "Hello! If you have any concerns about your child, feel free to talk.",
+        "日本語": "こんにちは！お子様に関する悩みがあれば気軽にお話しください。",
+        "中文 (简体)": "你好！如果有关于孩子的烦恼，请随时告诉我。",
+        "Español": "¡Hola! Si tienes alguna preocupación sobre tu hijo, no dudes en hablar."
     }
     st.session_state["chat_session"] = model.start_chat(history=[
         {"role": "user", "parts": [{"text": system_prompt}]},
         {"role": "model", "parts": [{"text": initial_messages[selected_language]}]}
     ])
 
-# 화면 레이아웃
-col1, col2, col3 = st.columns([1, 2, 1])
+# 대화 창
+for content in st.session_state.chat_session.history[2:]:
+    with st.chat_message("ai" if content.role == "model" else "user"):
+        st.markdown(content.parts[0].text)
 
-with col1:
-    st.subheader("자주 묻는 질문 (1)" if selected_language == "한국어" else "Frequently Asked Questions (1)")
-    for i in range(0, len(faq_questions)//2):
-        if st.button(faq_questions[i], key=f"faq_left_{i}"):
-            st.session_state["chat_input"] = faq_questions[i]
+# 경고 메시지 (주황색 배경)
+st.warning("아이 부모님이 직접 문의하셔야 합니다. 아이 본인은 건강 상담을 통해 예약이 많습니다.")
 
-with col3:
-    st.subheader("자주 묻는 질문 (2)" if selected_language == "한국어" else "Frequently Asked Questions (2)")
-    for i in range(len(faq_questions)//2, len(faq_questions)):
-        if st.button(faq_questions[i], key=f"faq_right_{i}"):
-            st.session_state["chat_input"] = faq_questions[i]
+# 입력 창
+if prompt := st.chat_input("대화를 종료하시겠습니까?" if selected_language == "한국어" else "Would you like to end the conversation?"):
+    st.session_state["chat_input"] = prompt
 
-with col2:
-    for content in st.session_state.chat_session.history[2:]:
-        with st.chat_message("ai" if content.role == "model" else "user"):
-            st.markdown(content.parts[0].text)
-
-    if prompt := st.chat_input("무엇이든 물어보세요" if selected_language == "한국어" else "Ask anything"):
-        st.session_state["chat_input"] = prompt
-
-    if "chat_input" in st.session_state and st.session_state["chat_input"]:
-        with st.chat_message("user"):
-            st.markdown(st.session_state["chat_input"])
-        with st.chat_message("ai"):
-            st.session_state["response"] = st.session_state.chat_session.send_message(st.session_state["chat_input"])
-            st.markdown(st.session_state["response"].text)
+if "chat_input" in st.session_state and st.session_state["chat_input"]:
+    with st.chat_message("user"):
+        st.markdown(st.session_state["chat_input"])
+    with st.chat_message("ai"):
+        st.session_state["response"] = st.session_state.chat_session.send_message(st.session_state["chat_input"])
+        st.markdown(st.session_state["response"].text)
 
 # 음성 버튼
 if st.button("음성으로 듣기" if selected_language == "한국어" else "Listen to Voice", key="audio_button"):

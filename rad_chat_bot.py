@@ -5,58 +5,31 @@ import io
 import json
 from gtts import gTTS
 import streamlit.components.v1 as components
+from datetime import datetime, timedelta
 
-# 모바일 뷰포트 설정 (HTML 헤더에 추가)
+# 페이지 설정
 st.set_page_config(
     page_title="영상의학과 안내 챗봇",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
+
+# 모바일 및 기본 스타일 (서울아산병원 스타일 반영)
 st.markdown(
     """
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        /* 모바일 최적화 CSS */
         @media (max-width: 768px) {
-            .stApp {
-                max-width: 100%;
-                margin: 0;
-                padding: 10px;
-            }
-            .stButton>button {
-                width: 100%;
-                padding: 10px;
-                font-size: 16px;
-                margin-bottom: 10px;
-            }
-            .stChatMessage {
-                font-size: 16px;
-                padding: 10px;
-            }
-            .stTextInput>div>input {
-                font-size: 16px;
-                padding: 10px;
-            }
-            [data-testid="stSidebar"] {
-                width: 80% !important;
-                padding: 10px;
-            }
-            .stExpander {
-                margin-bottom: 10px;
-            }
-            .stExpander > div > div {
-                padding: 10px;
-            }
+            .stApp { max-width: 100%; margin: 0; padding: 10px; }
+            .stButton>button { width: 100%; padding: 10px; font-size: 16px; margin-bottom: 10px; }
+            .stChatMessage { font-size: 16px; padding: 10px; }
+            .stTextInput>div>input { font-size: 16px; padding: 10px; }
+            [data-testid="stSidebar"] { width: 80% !important; padding: 10px; }
+            .stExpander { margin-bottom: 10px; }
         }
-        /* 데스크톱에서도 기본 스타일 유지 */
-        .stButton>button {
-            padding: 8px;
-            font-size: 14px;
-        }
-        .stChatMessage {
-            font-size: 14px;
-            padding: 8px;
-        }
+        .chat-header { background: #f5f5f5; padding: 10px; text-align: center; font-size: 18px; }
+        .chat-body { max-height: 400px; overflow-y: auto; padding: 10px; }
+        .bot-message { background: #e9ecef; padding: 8px; margin: 5px 0; border-radius: 5px; }
     </style>
     """,
     unsafe_allow_html=True
@@ -65,190 +38,136 @@ st.markdown(
 # API 키 설정
 api_key = os.getenv("GEMINI_API_KEY")
 if not api_key:
-    st.error("API 키가 설정되지 않았습니다. 관리자에게 문의하세요.")
+    st.error("API 키가 설정되지 않았습니다.")
     st.stop()
 genai.configure(api_key=api_key)
 
-# 언어 옵션 설정
-language_options = {
-    "한국어": "ko",
-    "English": "en",
-    "日本語": "ja",
-    "中文 (简体)": "zh-CN",
-    "Español": "es"
-}
-selected_language = st.selectbox("Select your language", list(language_options.keys()), index=0, key="language_select")
+# 언어 설정
+language_options = {"한국어": "ko", "English": "en", "日本語": "ja", "中文 (简体)": "zh-CN", "Español": "es"}
+selected_language = st.selectbox("언어 선택", list(language_options.keys()), index=0, key="language_select")
 lang_code = language_options[selected_language]
 
-# 제목 다국어 처리
+# 다국어 제목
 titles = {
-    "한국어": "검사 안내 봇 - 개인정보 NO",
-    "English": "Radiology Guidance Chatbot (Do Not Enter Personal Information)",
-    "日本語": "放射線科案内チャットボット（個人情報は入力しないでください）",
-    "中文 (简体)": "放射科指导聊天机器人（请勿输入个人信息）",
-    "Español": "Chatbot de Guía de Radiología (No Ingrese Información Personal)"
+    "한국어": "서울아산병원 영상의학과 챗봇",
+    "English": "Seoul Asan Hospital Radiology Chatbot",
+    "日本語": "ソウル峨山病院放射線科チャットボット",
+    "中文 (简体)": "首尔峨山医院放射科聊天机器人",
+    "Español": "Chatbot de Radiología del Hospital Asan de Seúl"
 }
 
-# 파일 읽기 함수
+# 데이터 로드 (예시 파일 가정)
 def load_text_file(file_path):
-    with open(file_path, 'r', encoding='utf-8') as f:
-        return f.read()
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    except FileNotFoundError:
+        return ""
 
-def load_json_file(file_path):
-    with open(file_path, 'r', encoding='utf-8') as f:
-        return json.load(f)
-
-# 데이터 로드
 inspection_guidelines = load_text_file("data/inspection_guidelines.txt")
-metformin_drugs = load_json_file("data/metformin_drugs.json")
-faq_questions = load_json_file("data/faq_questions.json")
-system_prompt_template = load_text_file("data/system_prompt.txt")
+system_prompt = f"당신은 서울아산병원 영상의학과 챗봇입니다. 다음 가이드라인을 참고하세요:\n{inspection_guidelines}"
 
-# system_prompt에 데이터 삽입
-system_prompt = system_prompt_template.format(
-    inspection_guidelines=inspection_guidelines,
-    metformin_drugs=', '.join(metformin_drugs)
-)
-
-# 모델 로드 (가장 먼저 실행)
+# 모델 로드
 @st.cache_resource
 def load_model():
-    model = genai.GenerativeModel('gemini-1.5-flash')
-    print("model loaded...")
-    return model
+    return genai.GenerativeModel('gemini-1.5-flash')
 
-# 모델을 먼저 정의
 model = load_model()
 
-# 초기 메시지 및 계절별 주의 문구 정의
+# 초기 메시지 및 공지사항
 initial_messages = {
-    "한국어": "검사 유형(초음파, MRI, CT)을 말씀해 주세요. 금식이나 당뇨약에 대해 궁금하면 물어보세요.",
-    "English": "Please tell me the type of examination (ultrasound, MRI, CT). Feel free to ask about fasting or diabetes medication.",
-    "日本語": "検査の種類（超音波、MRI、CT）を教えてください。絶食や糖尿病薬について質問があればどうぞ。",
-    "中文 (简体)": "请告诉我检查类型（超声波、MRI、CT）。如果对禁食或糖尿病药物有疑问，请随时问我。",
-    "Español": "Por favor, dime el tipo de examen (ultrasonido, MRI, CT). Si tienes preguntas sobre ayuno o medicamentos para la diabetes, no dudes en preguntar."
+    "한국어": "안녕하세요? 서울아산병원 영상의학과 챗봇입니다. 검사 유형(초음파, MRI, CT)을 말씀해 주세요.",
+    "English": "Hello! This is the Seoul Asan Hospital Radiology Chatbot. Please specify the exam type (ultrasound, MRI, CT).",
+    "日本語": "こんにちは！ソウル峨山病院放射線科チャットボットです。検査の種類（超音波、MRI、CT）を教えてください。",
+    "中文 (简体)": "您好！我是首尔峨山医院放射科聊天机器人。请告诉我检查类型（超声波、MRI、CT）。",
+    "Español": "¡Hola! Soy el chatbot de radiología del Hospital Asan de Seúl. Por favor, dime el tipo de examen (ultrasonido, MRI, CT)."
 }
 
-seasonal_notice = {
-    "한국어": "2025년 3월에는 독감과 알레르기에 유의하세요. 손씻기와 마스크 착용을 권장합니다.",
-    "English": "Notice about the most common diseases this season: In March 2025, please be cautious of flu and allergies. Hand washing and mask-wearing are recommended.",
-    "日本語": "その時期に流行している病気に関する注意事項: 2025年3月はインフルエンザとアレルギーに注意してください。手洗いとマスク着用を推奨します。",
-    "中文 (简体)": "关于本季最流行疾病的注意事项：2025年3月请注意流感和过敏症。建议勤洗手并佩戴口罩。",
-    "Español": "Aviso sobre las enfermedades más comunes esta temporada: En marzo de 2025, tenga cuidado con la gripe y las alergias. Se recomienda lavarse las manos y usar mascarilla."
-}
+notices = [
+    {"title": "마스크 착용", "content": "병원 내에서는 마스크를 착용해 주세요.", "lang": "한국어"},
+    {"title": "Mask Wearing", "content": "Please wear a mask in the hospital.", "lang": "English"}
+]
 
-# 세션 초기화 (model 정의 후 실행)
+# 세션 초기화
 if "chat_session" not in st.session_state:
     st.session_state["chat_session"] = model.start_chat(history=[
         {"role": "user", "parts": [{"text": system_prompt}]},
         {"role": "model", "parts": [{"text": initial_messages[selected_language]}]},
-        {"role": "model", "parts": [{"text": seasonal_notice[selected_language]}]}
+        {"role": "model", "parts": [{"text": next(n["content"] for n in notices if n["lang"] == selected_language)}]}
     ])
+if "last_activity" not in st.session_state:
+    st.session_state["last_activity"] = datetime.now()
 
-# 상단 레이아웃: 제목, 햄버거 메뉴, 집 모양 아이콘
+# 세션 타임아웃 (10분)
+def check_session_timeout():
+    if datetime.now() - st.session_state["last_activity"] > timedelta(minutes=10):
+        st.session_state["chat_session"] = model.start_chat(history=[
+            {"role": "user", "parts": [{"text": system_prompt}]},
+            {"role": "model", "parts": [{"text": initial_messages[selected_language] + " (세션이 만료되어 재시작되었습니다.)"}]}
+        ])
+        st.warning("10분 동안 활동이 없어 세션이 재설정되었습니다.")
+
+# 헤더
 col1, col2, col3 = st.columns([1, 8, 1])
 with col1:
-    if st.button("자주묻는질문(FAQ)", key="menu_button"):
-        st.session_state["show_sidebar"] = not st.session_state["show_sidebar"]
-        if st.session_state["show_sidebar"]:
-            # JavaScript를 통해 사이드바 강제 열기
-            components.html(
-                """
-                <script>
-                    // Streamlit의 기본 사이드바 토글 버튼을 찾아 클릭
-                    const sidebarToggle = document.querySelector('[data-testid="stSidebarCollapsedControl"]');
-                    if (sidebarToggle) {
-                        sidebarToggle.click();
-                    }
-                </script>
-                """,
-                height=0
-            )
+    if st.button("메뉴", key="menu_button"):
+        st.session_state["show_sidebar"] = not st.session_state.get("show_sidebar", False)
 with col2:
-    st.title(titles[selected_language])
+    st.markdown(f"<div class='chat-header'>{titles[selected_language]}</div>", unsafe_allow_html=True)
 with col3:
-    if st.button("대화리셋", key="reset_button"):
-        # 대화 리셋 로직
+    if st.button("리셋", key="reset_button"):
         st.session_state["chat_session"] = model.start_chat(history=[
             {"role": "user", "parts": [{"text": system_prompt}]},
             {"role": "model", "parts": [{"text": initial_messages[selected_language]}]},
-            {"role": "model", "parts": [{"text": seasonal_notice[selected_language]}]}
+            {"role": "model", "parts": [{"text": next(n["content"] for n in notices if n["lang"] == selected_language)}]}
         ])
-        st.session_state.pop("chat_input", None)  # 입력값 초기화
-        st.session_state.pop("response", None)    # 응답 초기화
-        st.success("대화가 리셋되었습니다." if selected_language == "한국어" else "Chat has been reset.")
-        st.rerun()  # 화면 새로고침
+        st.success("대화가 리셋되었습니다.")
+        st.rerun()
 
-# 햄버거 메뉴 토글 상태 관리
-if "show_sidebar" not in st.session_state:
-    st.session_state["show_sidebar"] = False
-
-# 사이드바에 FAQ 버튼 표시
-if st.session_state["show_sidebar"]:
+# 사이드바 (서울아산병원 LNB 메뉴 반영)
+if st.session_state.get("show_sidebar", False):
     with st.sidebar:
-        st.header("영상의학과 챗봇")
-        st.markdown("아래 카테고리를 누르시면 카테고리 매뉴 한눈에 알아볼 수 있습니다.")
+        st.header("카테고리")
+        categories = {
+            "진료/검사": ["진료예약", "검사예약/변경/취소", "내원"],
+            "원무": ["수납", "입원/퇴원"],
+            "발급안내": ["증명서", "의무기록"],
+            "병원이용 안내": ["오시는길", "주차", "편의시설"]
+        }
+        for category, items in categories.items():
+            with st.expander(category, expanded=True):
+                for item in items:
+                    if st.button(item, key=f"cat_{item}"):
+                        st.session_state["chat_input"] = item
 
-        # 건강검진 카테고리 (기본적으로 펼쳐짐)
-        with st.expander("건강검진", expanded=True):
-            for btn in ["건강검사", "건강보험/검소", "검사예약/방사/검소", "내진", "진료관련"]:
-                if st.button(btn, key=f"faq_{btn}"):
-                    st.session_state["chat_input"] = btn
-
-        # 업무 카테고리 (기본적으로 펼쳐짐)
-        with st.expander("업무", expanded=True):
-            for btn in ["마스크 착용해 주세요.", "입원/퇴원", "기타 문진"]:
-                if st.button(btn, key=f"faq_{btn}"):
-                    st.session_state["chat_input"] = btn
-
-        # 안내문내 카테고리 (기본적으로 펼쳐짐)
-        with st.expander("안내문내", expanded=True):
-            for btn in ["증명서", "증명서 (출판/자격)", "의무기록", "동의서/위임장", "기타"]:
-                if st.button(btn, key=f"faq_{btn}"):
-                    st.session_state["chat_input"] = btn
-
-        # 병실이용 안내 카테고리 (기본적으로 펼쳐짐)
-        with st.expander("병실이용 안내", expanded=True):
-            for btn in ["오시는길", "주차", "편의시설", "전화번호안내", "출입", "참관코너"]:
-                if st.button(btn, key=f"faq_{btn}"):
-                    st.session_state["chat_input"] = btn
-
-        # 웹페이지 이용 카테고리 (기본적으로 펼쳐짐)
-        with st.expander("웹페이지 이용", expanded=True):
-            for btn in ["회원", "진료예약", "본인인증", "내사처비스", "고객서비스"]:
-                if st.button(btn, key=f"faq_{btn}"):
-                    st.session_state["chat_input"] = btn
-
-        # 건강검사 카테고리 (기본적으로 펼쳐짐)
-        with st.expander("건강검사", expanded=True):
-            for btn in ["영상의 소게"]:
-                if st.button(btn, key=f"faq_{btn}"):
-                    st.session_state["chat_input"] = btn
-
-# 메인 화면 레이아웃
+# 채팅 창
+st.markdown("<div class='chat-body'>", unsafe_allow_html=True)
 for content in st.session_state.chat_session.history[2:]:
-    with st.chat_message("ai" if content.role == "model" else "user"):
-        st.markdown(content.parts[0].text)
+    role = "ai" if content.role == "model" else "user"
+    with st.chat_message(role):
+        st.markdown(f"<div class='bot-message'>{content.parts[0].text}</div>", unsafe_allow_html=True)
+st.markdown("</div>", unsafe_allow_html=True)
 
-if prompt := st.chat_input("무엇이든 물어보세요" if selected_language == "한국어" else "Ask anything"):
+# 입력창 (특수문자 방지 및 자동완성 모방)
+if prompt := st.chat_input("키워드를 입력하세요"):
+    # 특수문자 제거
+    prompt = ''.join(c for c in prompt if c.isalnum() or c.isspace())
     st.session_state["chat_input"] = prompt
+    st.session_state["last_activity"] = datetime.now()
 
 if "chat_input" in st.session_state and st.session_state["chat_input"]:
+    check_session_timeout()
     with st.chat_message("user"):
         st.markdown(st.session_state["chat_input"])
     with st.chat_message("ai"):
-        st.session_state["response"] = st.session_state.chat_session.send_message(st.session_state["chat_input"])
-        st.markdown(st.session_state["response"].text)
+        response = st.session_state.chat_session.send_message(st.session_state["chat_input"])
+        st.markdown(f"<div class='bot-message'>{response.text}</div>", unsafe_allow_html=True)
+        st.session_state["response"] = response
 
-# 음성 버튼
-if st.button("음성으로 듣기" if selected_language == "한국어" else "Listen to Voice", key="audio_button"):
-    try:
-        tts = gTTS(text=st.session_state["response"].text, lang=lang_code)
-        audio_buffer = io.BytesIO()
-        tts.write_to_fp(audio_buffer)
-        audio_buffer.seek(0)
-        st.audio(audio_buffer, format="audio/mp3")
-    except ImportError:
-        st.error("음성 기능(gTTS)이 설치되지 않았습니다. 관리자에게 문의하세요." if selected_language == "한국어" else "Voice function (gTTS) is not installed. Contact the administrator.")
-    except Exception as e:
-        st.error(f"음성 변환 중 오류 발생: {str(e)}" if selected_language == "한국어" else f"Error during voice conversion: {str(e)}")
+# 음성 출력
+if st.button("음성으로 듣기", key="audio_button") and "response" in st.session_state:
+    tts = gTTS(text=st.session_state["response"].text, lang=lang_code)
+    audio_buffer = io.BytesIO()
+    tts.write_to_fp(audio_buffer)
+    audio_buffer.seek(0)
+    st.audio(audio_buffer, format="audio/mp3")

@@ -14,7 +14,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 모바일 및 기본 스타일 (서울아산병원 스타일 반영)
+# 모바일 및 기본 스타일 (가시성 개선 포함)
 st.markdown(
     """
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -30,6 +30,25 @@ st.markdown(
         .chat-header { background: #f5f5f5; padding: 10px; text-align: center; font-size: 18px; }
         .chat-body { max-height: 400px; overflow-y: auto; padding: 10px; }
         .bot-message { background: #e9ecef; padding: 8px; margin: 5px 0; border-radius: 5px; }
+        /* 메뉴 버튼 스타일 개선 */
+        .menu-button button {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+            border-radius: 5px;
+            padding: 8px 16px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .menu-button button:hover {
+            background-color: #0056b3;
+        }
+        /* 사이드바 열림 상태에서 화살표 숨기기 */
+        [data-testid="stSidebarCollapsedControl"] {
+            display: none !important;
+        }
     </style>
     """,
     unsafe_allow_html=True
@@ -47,13 +66,13 @@ language_options = {"한국어": "ko", "English": "en", "日本語": "ja", "中�
 selected_language = st.selectbox("언어 선택", list(language_options.keys()), index=0, key="language_select")
 lang_code = language_options[selected_language]
 
-# 다국어 제목
+# 다국어 제목 ("서울아산병원"을 "영상의학과"로 대체)
 titles = {
-    "한국어": "서울아산병원 영상의학과 챗봇",
-    "English": "Seoul Asan Hospital Radiology Chatbot",
-    "日本語": "ソウル峨山病院放射線科チャットボット",
-    "中文 (简体)": "首尔峨山医院放射科聊天机器人",
-    "Español": "Chatbot de Radiología del Hospital Asan de Seúl"
+    "한국어": "영상의학과 챗봇",
+    "English": "Radiology Chatbot",
+    "日本語": "放射線科チャットボット",
+    "中文 (简体)": "放射科聊天机器人",
+    "Español": "Chatbot de Radiología"
 }
 
 # 데이터 로드 (예시 파일 가정)
@@ -65,7 +84,8 @@ def load_text_file(file_path):
         return ""
 
 inspection_guidelines = load_text_file("data/inspection_guidelines.txt")
-system_prompt = f"당신은 서울아산병원 영상의학과 챗봇입니다. 다음 가이드라인을 참고하세요:\n{inspection_guidelines}"
+# 시스템 프롬프트에서 "서울아산병원"을 "영상의학과"로 대체
+system_prompt = f"당신은 영상의학과 챗봇입니다. 다음 가이드라인을 참고하세요:\n{inspection_guidelines}"
 
 # 모델 로드
 @st.cache_resource
@@ -74,13 +94,13 @@ def load_model():
 
 model = load_model()
 
-# 초기 메시지 및 공지사항
+# 초기 메시지 ("서울아산병원"을 "영상의학과"로 대체)
 initial_messages = {
-    "한국어": "안녕하세요? 서울아산병원 영상의학과 챗봇입니다. 검사 유형(초음파, MRI, CT)을 말씀해 주세요.",
-    "English": "Hello! This is the Seoul Asan Hospital Radiology Chatbot. Please specify the exam type (ultrasound, MRI, CT).",
-    "日本語": "こんにちは！ソウル峨山病院放射線科チャットボットです。検査の種類（超音波、MRI、CT）を教えてください。",
-    "中文 (简体)": "您好！我是首尔峨山医院放射科聊天机器人。请告诉我检查类型（超声波、MRI、CT）。",
-    "Español": "¡Hola! Soy el chatbot de radiología del Hospital Asan de Seúl. Por favor, dime el tipo de examen (ultrasonido, MRI, CT)."
+    "한국어": "안녕하세요? 영상의학과 챗봇입니다. 검사 유형(초음파, MRI, CT)을 말씀해 주세요.",
+    "English": "Hello! This is the Radiology Chatbot. Please specify the exam type (ultrasound, MRI, CT).",
+    "日本語": "こんにちは！放射線科チャットボットです。検査の種類（超音波、MRI、CT）を教えてください。",
+    "中文 (简体)": "您好！我是放射科聊天机器人。请告诉我检查类型（超声波、MRI、CT）。",
+    "Español": "¡Hola! Soy el chatbot de radiología. Por favor, dime el tipo de examen (ultrasonido, MRI, CT)."
 }
 
 notices = [
@@ -97,6 +117,8 @@ if "chat_session" not in st.session_state:
     ])
 if "last_activity" not in st.session_state:
     st.session_state["last_activity"] = datetime.now()
+if "show_sidebar" not in st.session_state:
+    st.session_state["show_sidebar"] = False
 
 # 세션 타임아웃 (10분)
 def check_session_timeout():
@@ -110,22 +132,39 @@ def check_session_timeout():
 # 헤더
 col1, col2, col3 = st.columns([1, 8, 1])
 with col1:
-    if st.button("메뉴", key="menu_button"):
-        st.session_state["show_sidebar"] = not st.session_state.get("show_sidebar", False)
+    # 메뉴 버튼
+    menu_label = "메뉴" if selected_language == "한국어" else "Menu"
+    if st.button(menu_label, key="menu_button"):
+        st.session_state["show_sidebar"] = True
+        # JavaScript를 사용해 사이드바 강제 열기
+        components.html(
+            """
+            <script>
+                // Streamlit의 기본 사이드바 토글 버튼을 찾아 클릭
+                const sidebarToggle = document.querySelector('[data-testid="stSidebarCollapsedControl"]');
+                if (sidebarToggle) {
+                    sidebarToggle.click();
+                }
+            </script>
+            """,
+            height=0
+        )
 with col2:
     st.markdown(f"<div class='chat-header'>{titles[selected_language]}</div>", unsafe_allow_html=True)
 with col3:
-    if st.button("리셋", key="reset_button"):
+    reset_label = "리셋" if selected_language == "한국어" else "Reset"
+    if st.button(reset_label, key="reset_button"):
         st.session_state["chat_session"] = model.start_chat(history=[
             {"role": "user", "parts": [{"text": system_prompt}]},
             {"role": "model", "parts": [{"text": initial_messages[selected_language]}]},
             {"role": "model", "parts": [{"text": next(n["content"] for n in notices if n["lang"] == selected_language)}]}
         ])
+        st.session_state["show_sidebar"] = False
         st.success("대화가 리셋되었습니다.")
         st.rerun()
 
-# 사이드바 (서울아산병원 LNB 메뉴 반영)
-if st.session_state.get("show_sidebar", False):
+# 사이드바 (즉시 표시)
+if st.session_state["show_sidebar"]:
     with st.sidebar:
         st.header("카테고리")
         categories = {
@@ -148,9 +187,8 @@ for content in st.session_state.chat_session.history[2:]:
         st.markdown(f"<div class='bot-message'>{content.parts[0].text}</div>", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# 입력창 (특수문자 방지 및 자동완성 모방)
+# 입력창
 if prompt := st.chat_input("키워드를 입력하세요"):
-    # 특수문자 제거
     prompt = ''.join(c for c in prompt if c.isalnum() or c.isspace())
     st.session_state["chat_input"] = prompt
     st.session_state["last_activity"] = datetime.now()

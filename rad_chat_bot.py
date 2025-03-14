@@ -112,7 +112,7 @@ if "show_sidebar" not in st.session_state:
 # 사이드바에 FAQ 버튼 표시
 if st.session_state["show_sidebar"]:
     with st.sidebar:
-        st.header("서울아산병원 챗봇")
+        st.header("영상의학과 챗봇")
         st.markdown("아래 카테고리를 누르시면 카테고리 매뉴 한눈에 알아볼 수 있습니다.")
 
         # 건강검진 카테고리

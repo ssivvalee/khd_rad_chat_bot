@@ -81,7 +81,7 @@ lang_code = language_options[selected_language]
 
 # 제목 다국어 처리
 titles = {
-    "한국어": "영상의학과 챗봇 (개인정보 넣지 마세요)",
+    "한국어": "영상의학과 안내 챗봇 (개인정보 넣지 마세요)",
     "English": "Radiology Guidance Chatbot (Do Not Enter Personal Information)",
     "日本語": "放射線科案内チャットボット（個人情報は入力しないでください）",
     "中文 (简体)": "放射科指导聊天机器人（请勿输入个人信息）",
@@ -129,7 +129,7 @@ initial_messages = {
 }
 
 seasonal_notice = {
-    "한국어": "2025년 3월에는 독감과 알레르기에 유의하세요. 손씻기와 마스크 착용을 권장합니다.",
+    "한국어": "그 시기에 가장 유행하는 병에 대해 주의 문구: 2025년 3월에는 독감과 알레르기에 유의하세요. 손씻기와 마스크 착용을 권장합니다.",
     "English": "Notice about the most common diseases this season: In March 2025, please be cautious of flu and allergies. Hand washing and mask-wearing are recommended.",
     "日本語": "その時期に流行している病気に関する注意事項: 2025年3月はインフルエンザとアレルギーに注意してください。手洗いとマスク着用を推奨します。",
     "中文 (简体)": "关于本季最流行疾病的注意事项：2025年3月请注意流感和过敏症。建议勤洗手并佩戴口罩。",
@@ -162,7 +162,7 @@ with col3:
         st.session_state.pop("chat_input", None)  # 입력값 초기화
         st.session_state.pop("response", None)    # 응답 초기화
         st.success("대화가 리셋되었습니다." if selected_language == "한국어" else "Chat has been reset.")
-        st.rerun()  # 화면 새로고침 (experimental_rerun 대신 rerun 사용)
+        st.rerun()  # 화면 새로고침
 
 # 햄버거 메뉴 토글 상태 관리
 if "show_sidebar" not in st.session_state:
@@ -171,41 +171,41 @@ if "show_sidebar" not in st.session_state:
 # 사이드바에 FAQ 버튼 표시
 if st.session_state["show_sidebar"]:
     with st.sidebar:
-        st.header("서울아산병원 챗봇")
+        st.header("영상의학과 챗봇")
         st.markdown("아래 카테고리를 누르시면 카테고리 매뉴 한눈에 알아볼 수 있습니다.")
 
-        # 건강검진 카테고리
-        with st.expander("건강검진"):
+        # 건강검진 카테고리 (기본적으로 펼쳐짐)
+        with st.expander("건강검진", expanded=True):
             for btn in ["건강검사", "건강보험/검소", "검사예약/방사/검소", "내진", "진료관련"]:
                 if st.button(btn, key=f"faq_{btn}"):
                     st.session_state["chat_input"] = btn
 
-        # 업무 카테고리
-        with st.expander("업무"):
+        # 업무 카테고리 (기본적으로 펼쳐짐)
+        with st.expander("업무", expanded=True):
             for btn in ["마스크 착용해 주세요.", "입원/퇴원", "기타 문진"]:
                 if st.button(btn, key=f"faq_{btn}"):
                     st.session_state["chat_input"] = btn
 
-        # 안내문내 카테고리
-        with st.expander("안내문내"):
+        # 안내문내 카테고리 (기본적으로 펼쳐짐)
+        with st.expander("안내문내", expanded=True):
             for btn in ["증명서", "증명서 (출판/자격)", "의무기록", "동의서/위임장", "기타"]:
                 if st.button(btn, key=f"faq_{btn}"):
                     st.session_state["chat_input"] = btn
 
-        # 병실이용 안내 카테고리
-        with st.expander("병실이용 안내"):
+        # 병실이용 안내 카테고리 (기본적으로 펼쳐짐)
+        with st.expander("병실이용 안내", expanded=True):
             for btn in ["오시는길", "주차", "편의시설", "전화번호안내", "출입", "참관코너"]:
                 if st.button(btn, key=f"faq_{btn}"):
                     st.session_state["chat_input"] = btn
 
-        # 웹페이지 이용 카테고리
-        with st.expander("웹페이지 이용"):
+        # 웹페이지 이용 카테고리 (기본적으로 펼쳐짐)
+        with st.expander("웹페이지 이용", expanded=True):
             for btn in ["회원", "진료예약", "본인인증", "내사처비스", "고객서비스"]:
                 if st.button(btn, key=f"faq_{btn}"):
                     st.session_state["chat_input"] = btn
 
-        # 건강검사 카테고리
-        with st.expander("건강검사"):
+        # 건강검사 카테고리 (기본적으로 펼쳐짐)
+        with st.expander("건강검사", expanded=True):
             for btn in ["영상의 소게"]:
                 if st.button(btn, key=f"faq_{btn}"):
                     st.session_state["chat_input"] = btn

@@ -162,7 +162,7 @@ with col3:
         st.session_state.pop("chat_input", None)  # 입력값 초기화
         st.session_state.pop("response", None)    # 응답 초기화
         st.success("대화가 리셋되었습니다." if selected_language == "한국어" else "Chat has been reset.")
-        st.experimental_rerun()  # 화면 새로고침
+        st.rerun()  # 화면 새로고침 (experimental_rerun 대신 rerun 사용)
 
 # 햄버거 메뉴 토글 상태 관리
 if "show_sidebar" not in st.session_state:
@@ -171,7 +171,7 @@ if "show_sidebar" not in st.session_state:
 # 사이드바에 FAQ 버튼 표시
 if st.session_state["show_sidebar"]:
     with st.sidebar:
-        st.header("서울영상의학과 챗봇")
+        st.header("서울아산병원 챗봇")
         st.markdown("아래 카테고리를 누르시면 카테고리 매뉴 한눈에 알아볼 수 있습니다.")
 
         # 건강검진 카테고리
